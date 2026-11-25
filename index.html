@@ -258,6 +258,19 @@ dialog.sheet .dlg-head { padding-top: 14px; }
 .pasterow .field { flex: 1; min-width: 0; }
 .detected { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: .84rem; }
 .detected img { width: 88px; border-radius: 8px; flex: none; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: .8rem; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.upload { display: grid; gap: 12px; }
+.filebtn { position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+.vopts { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.vopts .head { display: flex; justify-content: space-between; gap: 10px; font-size: .86rem; align-items: center; }
+.vopts .head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.est { font-size: .82rem; border-radius: 10px; padding: 8px 10px; background: var(--surface-2); }
+.est.bad { background: var(--accent-soft); }
+.prog { display: grid; gap: 6px; font-size: .82rem; color: var(--ink-2); }
+.prog .bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.prog .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 details.more { border-top: 1px solid var(--line); padding-top: 12px; }
 details.more summary { cursor: pointer; font-weight: 600; color: var(--ink-2); font-size: .9rem; list-style: none; display: flex; justify-content: space-between; min-height: 32px; align-items: center; }
 details.more summary::-webkit-details-marker { display: none; }
@@ -448,6 +461,27 @@ details.more > .form { margin-top: 14px; }
           <span class="pasterow"><input class="field" id="fLink1" type="url" inputmode="url" placeholder="YouTube, Instagram, TikTok, ezdance …" autocomplete="off"><button type="button" class="btn" id="pasteBtn" aria-label="Aus Zwischenablage einfügen"><svg class="icon"><use href="#i-paste"/></svg></button></span>
         </label>
         <div id="detectBox"></div>
+        <div class="upload">
+          <div class="or">oder</div>
+          <label class="btn block filebtn" for="fFile"><svg class="icon"><use href="#i-play"/></svg><span id="fFileBtnTxt">Eigenes Video hochladen</span><input type="file" id="fFile" accept="video/*"></label>
+          <div class="vopts" id="vOpts" hidden>
+            <div class="head"><b id="vName"></b><button type="button" class="link" id="vRemove">Entfernen</button></div>
+            <div class="hint" id="fFileInfo"></div>
+            <div class="two">
+              <label for="vFrom">Von <span class="hint">m:ss</span><input class="field" id="vFrom" inputmode="numeric" placeholder="0:00" autocomplete="off"></label>
+              <label for="vTo">Bis <span class="hint">m:ss</span><input class="field" id="vTo" inputmode="numeric" autocomplete="off"></label>
+            </div>
+            <label for="vQual">Qualität
+              <select class="field" id="vQual">
+                <option value="hd">Gut · 720p (empfohlen)</option>
+                <option value="sd">Sparsam · 480p</option>
+                <option value="orig">Original ohne Komprimierung</option>
+              </select>
+            </label>
+            <div class="est" id="vEst"></div>
+          </div>
+          <div class="prog" id="vProg" hidden><div class="bar"><i id="vBar"></i></div><span id="vProgTxt"></span></div>
+        </div>
         <label for="fTitle">Titel / Figur *<input class="field" id="fTitle" required placeholder="z. B. Hammerlock mit Ausdrehung" autocomplete="off"></label>
         <div><span class="lbl" style="margin-bottom:8px">Mein Stand</span><div class="status" id="fStatusSel"></div></div>
         <div class="two">
@@ -466,7 +500,6 @@ details.more > .form { margin-top: 14px; }
             <label for="fCounts">Timing<input class="field" id="fCounts" placeholder="1-2-3-tap 5-6-7-tap"></label>
             <label for="fTags">Tags <span class="hint">Komma-getrennt</span><input class="field" id="fTags" placeholder="combo, kurs-woche-3"></label>
             <label for="fLinksMore">Weitere Links <span class="hint">einer pro Zeile</span><textarea class="field" id="fLinksMore" rows="2" style="min-height:70px"></textarea></label>
-            <label for="fFile">Eigenes Video hochladen <span class="hint">z. B. Kursaufnahme. Max. 50 MB, wird in deiner Cloud gespeichert.</span><input class="field" type="file" id="fFile" accept="video/*"><span class="hint" id="fFileInfo"></span></label>
             <label for="fNotes">Notizen<textarea class="field" id="fNotes" placeholder="Führungsimpuls, Armhaltung, Musikstelle …"></textarea></label>
           </div>
         </details>
@@ -491,6 +524,7 @@ details.more > .form { margin-top: 14px; }
     <div class="dlg-body" style="padding-bottom:calc(var(--sab) + 16px)">
       <div class="menu-list">
         <div class="who" id="whoAmI"></div>
+        <div class="who" id="storageInfo"></div>
         <button id="themeBtn">Hell / Dunkel umschalten</button>
         <button id="syncBtn">Jetzt synchronisieren</button>
         <hr>
@@ -528,7 +562,10 @@ const SUPABASE_URL = "https://edmpvivauylsycnfdosj.supabase.co";
 const SUPABASE_KEY = "sb_publishable__0CkV_VOMv4O-AveRdZKKw_5rhQ-ql-";
 const TABLE = "bachata_tutorials";
 const BUCKET = "bachata-videos";
-const MAX_VIDEO_MB = 50;
+const MAX_UPLOAD = 48 * 1048576;  // Bucket-Limit 50 MB, etwas Puffer
+const AUDIO_BPS = 96000;
+const QUAL = { hd: { short: 720, maxBps: 2500000, label: "720p" }, sd: { short: 480, maxBps: 1100000, label: "480p" } };
+const MIN_BPS = 350000;
 
 /* ---------- Konstanten ---------- */
 const STATUS = [
@@ -561,7 +598,7 @@ const haptic = () => { try { navigator.vibrate && navigator.vibrate(8); } catch 
 const stLabel = (id) => STATUS.find((s) => s.id === id).label;
 const stColor = (id) => STATUS.find((s) => s.id === id).color;
 
-const blank = () => ({ id: uuid(), title: "", style: "Sensual", category: "Grundschritte", level: 2, role: "Beide", duration: null, teacher: "", counts: "", tags: [], notes: "", links: [], videoPath: null, status: "offen", confidence: 0, favorite: false, practiceCount: 0, lastPracticed: null, example: false, createdAt: Date.now() });
+const blank = () => ({ id: uuid(), title: "", style: "Sensual", category: "Grundschritte", level: 2, role: "Beide", duration: null, teacher: "", counts: "", tags: [], notes: "", links: [], videoPath: null, videoBytes: 0, status: "offen", confidence: 0, favorite: false, practiceCount: 0, lastPracticed: null, example: false, createdAt: Date.now() });
 
 function parseUrl(raw) {
   const url = String(raw || "").trim();
@@ -637,14 +674,14 @@ const pendKey = () => `bachatalab.pending.${user.id}`;
 const toRow = (it) => ({
   id: it.id, title: it.title.slice(0, 200), style: it.style, category: it.category, level: it.level, role: it.role,
   duration: it.duration, teacher: it.teacher, counts: it.counts, tags: it.tags, notes: it.notes, links: it.links,
-  video_path: it.videoPath, status: it.status, confidence: it.confidence, favorite: it.favorite,
+  video_path: it.videoPath, video_bytes: it.videoBytes || 0, status: it.status, confidence: it.confidence, favorite: it.favorite,
   practice_count: it.practiceCount, last_practiced: it.lastPracticed ? new Date(it.lastPracticed).toISOString() : null,
   example: it.example, created_at: new Date(it.createdAt).toISOString(),
 });
 const fromRow = (r) => ({
   id: r.id, title: r.title, style: r.style, category: r.category, level: r.level, role: r.role, duration: r.duration,
   teacher: r.teacher || "", counts: r.counts || "", tags: r.tags || [], notes: r.notes || "", links: r.links || [],
-  videoPath: r.video_path, status: r.status, confidence: r.confidence || 0, favorite: !!r.favorite,
+  videoPath: r.video_path, videoBytes: r.video_bytes || 0, status: r.status, confidence: r.confidence || 0, favorite: !!r.favorite,
   practiceCount: r.practice_count || 0, lastPracticed: r.last_practiced ? Date.parse(r.last_practiced) : null,
   example: !!r.example, createdAt: Date.parse(r.created_at),
 });
@@ -1114,12 +1151,12 @@ function openEdit(id) {
   $("#editTitle").textContent = id ? "Bearbeiten" : "Tutorial hinzufügen";
   $("#fLink1").value = it.links[0] || "";
   $("#fLinksMore").value = it.links.slice(1).join("\n");
-  $("#fFile").value = ""; $("#fFileInfo").textContent = it.videoPath ? "Ein eigenes Video ist bereits hochgeladen. Eine neue Datei ersetzt es." : "";
+  resetVideoPick(it.videoPath ? "Ersetzt das bereits hochgeladene Video" : "");
   $("#fTitle").value = it.title; $("#fStyleSel").value = it.style; $("#fCatSel").value = it.category; $("#fRoleSel").value = it.role;
   $("#fLvl").value = it.level; lvlLabel();
   $("#fDur").value = it.duration ?? ""; $("#fTeacher").value = it.teacher; $("#fCounts").value = it.counts;
   $("#fTags").value = it.tags.join(", "); $("#fNotes").value = it.notes;
-  $("#moreBox").open = !!id && !!(it.teacher || it.counts || it.tags.length || it.notes || it.links.length > 1 || it.videoPath);
+  $("#moreBox").open = !!id && !!(it.teacher || it.counts || it.tags.length || it.notes || it.links.length > 1);
   editStatus = it.status; renderEditStatus();
   $("#saveBtn").disabled = false; $("#saveBtn").textContent = "Speichern";
   detect();
@@ -1176,40 +1213,188 @@ function guessFromTitle(t) {
   lvlLabel();
 }
 $("#fLink1").addEventListener("input", detect);
-$("#fFile").addEventListener("change", (e) => {
-  const f = e.target.files[0]; if (!f) { $("#fFileInfo").textContent = ""; return; }
-  const mb = f.size / 1048576;
-  if (mb > MAX_VIDEO_MB) { $("#fFileInfo").textContent = `Die Datei hat ${mb.toFixed(0)} MB, erlaubt sind ${MAX_VIDEO_MB} MB. Kürze das Video oder lade es nicht gelistet auf YouTube hoch.`; e.target.value = ""; return; }
-  $("#fFileInfo").textContent = `${f.name} · ${mb.toFixed(1)} MB`;
-  if (!$("#fTitle").value.trim()) $("#fTitle").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
-});
 
+/* ---------- Eigene Videos: Auswahl, Zuschnitt, Komprimierung ---------- */
+let vPick = null; // { file, meta: {duration, w, h} | null }
+let vJob = null;
+const fmtTime = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const parseTime = (str) => { const t = String(str || "").trim(); if (!t) return null; if (!/^\d+(:\d{1,2}){0,2}$/.test(t)) return NaN; return t.split(":").reduce((a, n) => a * 60 + +n, 0); };
+const mb = (b) => (b / 1048576).toFixed(b < 10485760 ? 1 : 0).replace(".", ",") + " MB";
+
+function resetVideoPick(note) {
+  vPick = null; $("#fFile").value = ""; $("#vOpts").hidden = true; $("#vProg").hidden = true;
+  $("#fFileBtnTxt").textContent = note ? "Neues Video wählen" : "Eigenes Video hochladen";
+  $("#fFileInfo").textContent = note || "";
+}
+function readMeta(file) {
+  return new Promise((res) => {
+    const v = document.createElement("video"); const url = URL.createObjectURL(file);
+    const done = (m) => { clearTimeout(t); URL.revokeObjectURL(url); v.removeAttribute("src"); res(m); };
+    const t = setTimeout(() => done(null), 8000);
+    v.preload = "metadata"; v.muted = true; v.playsInline = true;
+    v.onloadedmetadata = () => done(isFinite(v.duration) && v.duration > 0 && v.videoWidth ? { duration: v.duration, w: v.videoWidth, h: v.videoHeight } : null);
+    v.onerror = () => done(null);
+    v.src = url;
+  });
+}
+const canCompress = () => typeof MediaRecorder !== "undefined" && !!HTMLCanvasElement.prototype.captureStream && !!pickMime();
+function pickMime() {
+  if (typeof MediaRecorder === "undefined") return "";
+  return ["video/mp4;codecs=avc1.42E01F,mp4a.40.2", "video/mp4;codecs=avc1,mp4a", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find((m) => { try { return MediaRecorder.isTypeSupported(m); } catch { return false; } }) || "";
+}
+
+// Berechnet, was mit dem gewählten Video passiert
+function videoPlan() {
+  if (!vPick) return null;
+  const { file, meta } = vPick;
+  const q = $("#vQual").value;
+  const dur = meta ? meta.duration : null;
+  let from = parseTime($("#vFrom").value), to = parseTime($("#vTo").value);
+  if (Number.isNaN(from) || Number.isNaN(to)) return { error: "Zeit bitte als m:ss eingeben, z. B. 1:30." };
+  from = from ?? 0; to = to ?? dur;
+  const trimmed = dur != null && (from > 0.5 || to < dur - 0.5);
+  if (dur != null && (from >= to || to > dur + 1)) return { error: `„Von“ muss vor „Bis“ liegen und „Bis“ höchstens ${fmtTime(dur)} sein.` };
+  if (q === "orig") {
+    if (trimmed) return { error: "Zum Zuschneiden muss das Video komprimiert werden. Wähle „Gut“ oder „Sparsam“." };
+    if (file.size > MAX_UPLOAD) return { error: `Das Original hat ${mb(file.size)}, erlaubt sind 48 MB. Wähle „Gut“ oder „Sparsam“, dann wird es passend verkleinert.` };
+    return { compress: false, size: file.size };
+  }
+  if (!meta) return { error: "Dieses Videoformat kann dein Browser nicht verarbeiten. Lade es als Original hoch (bis 48 MB) oder exportiere es vorher als MP4." };
+  if (!canCompress()) return { error: "Dein Browser kann Videos nicht komprimieren. Nutze einen aktuellen Chrome oder Safari, oder lade das Original hoch (bis 48 MB)." };
+  const seg = to - from;
+  const Q = QUAL[q];
+  const budget = (MAX_UPLOAD * 0.92 * 8) / seg - AUDIO_BPS;
+  const vbr = Math.min(Q.maxBps, budget);
+  if (vbr < MIN_BPS) {
+    const maxMin = Math.floor((MAX_UPLOAD * 0.92 * 8) / (MIN_BPS + AUDIO_BPS) / 60);
+    return { error: `Der Ausschnitt ist ${fmtTime(seg)} lang. Pro Video gehen bis ca. ${maxMin} Minuten. Kürze mit „Von“ und „Bis“ auf den Teil, den du üben willst, oder lade lange Videos nicht gelistet auf YouTube hoch und füge den Link ein.` };
+  }
+  const scale = Math.min(1, Q.short / Math.min(meta.w, meta.h));
+  const w = Math.max(2, Math.round((meta.w * scale) / 2) * 2), h = Math.max(2, Math.round((meta.h * scale) / 2) * 2);
+  return { compress: true, from, to, seg, vbr: Math.round(vbr), w, h, size: ((vbr + AUDIO_BPS) * seg) / 8 };
+}
+function renderVideoPlan() {
+  const est = $("#vEst"); const p = videoPlan(); if (!p) return;
+  est.classList.toggle("bad", !!p.error);
+  if (p.error) { est.textContent = p.error; return; }
+  est.textContent = p.compress
+    ? `Ergebnis ca. ${mb(p.size)} in ${p.w}×${p.h}. Das Komprimieren dauert so lange wie der Ausschnitt (${fmtTime(p.seg)}). Lass die App dabei geöffnet.`
+    : `Wird unverändert hochgeladen (${mb(p.size)}).`;
+}
+$("#fFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  vPick = { file, meta: null };
+  $("#vOpts").hidden = false; $("#vName").textContent = file.name; $("#fFileBtnTxt").textContent = "Anderes Video wählen";
+  $("#fFileInfo").textContent = `${mb(file.size)} · wird gelesen …`; $("#vEst").textContent = "";
+  if (!$("#fTitle").value.trim()) $("#fTitle").value = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+  const meta = await readMeta(file);
+  if (!vPick || vPick.file !== file) return;
+  vPick.meta = meta;
+  $("#fFileInfo").textContent = meta ? `${mb(file.size)} · ${fmtTime(meta.duration)} · ${meta.w}×${meta.h}` : `${mb(file.size)} · Länge unbekannt`;
+  $("#vFrom").value = ""; $("#vTo").value = meta ? fmtTime(meta.duration) : "";
+  $("#vFrom").disabled = $("#vTo").disabled = !meta;
+  $("#vQual").value = file.size <= MAX_UPLOAD && (!meta || Math.min(meta.w, meta.h) <= 720) ? "orig" : "hd";
+  renderVideoPlan();
+});
+["#vFrom", "#vTo", "#vQual"].forEach((s) => $(s).addEventListener("input", renderVideoPlan));
+$("#vQual").addEventListener("change", renderVideoPlan);
+$("#vRemove").addEventListener("click", () => resetVideoPick(""));
+
+// Spielt den Ausschnitt einmal in Echtzeit ab und nimmt ihn verkleinert neu auf (Canvas + MediaRecorder).
+// Muss synchron aus dem Klick heraus gestartet werden, damit iOS Ton und Wiedergabe erlaubt.
+function startCompression(file, plan, onProgress) {
+  const url = URL.createObjectURL(file);
+  const v = document.createElement("video");
+  v.playsInline = true; v.preload = "auto"; v.src = url;
+  v.style.cssText = "position:fixed;left:-10000px;top:0;width:4px;height:4px;opacity:0;pointer-events:none";
+  document.body.appendChild(v);
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = AC ? new AC() : null;
+  if (ac) ac.resume().catch(() => {});
+  let audioSrc = null, audioDest = null;
+  try { if (ac) { audioSrc = ac.createMediaElementSource(v); audioDest = ac.createMediaStreamDestination(); audioSrc.connect(audioDest); } } catch { audioDest = null; }
+  const unlock = v.play(); if (unlock) unlock.then(() => v.pause()).catch(() => {});
+  let cancelled = false, rec = null, wake = null;
+  const cleanup = () => { try { v.pause(); } catch {} v.removeAttribute("src"); v.remove(); URL.revokeObjectURL(url); if (ac) ac.close().catch(() => {}); if (wake) wake.release().catch(() => {}); };
+  const done = (async () => {
+    try { wake = await navigator.wakeLock?.request("screen"); } catch {}
+    if (v.readyState < 1) await new Promise((res, rej) => { v.addEventListener("loadedmetadata", res, { once: true }); v.addEventListener("error", () => rej(new Error("Das Video konnte nicht gelesen werden.")), { once: true }); });
+    const canvas = document.createElement("canvas"); canvas.width = plan.w; canvas.height = plan.h;
+    const ctx = canvas.getContext("2d");
+    const stream = canvas.captureStream(30);
+    const tracks = [...stream.getVideoTracks(), ...(audioDest ? audioDest.stream.getAudioTracks() : [])];
+    const mime = pickMime();
+    rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: plan.vbr, audioBitsPerSecond: AUDIO_BPS });
+    const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((res) => (rec.onstop = res));
+    v.pause(); v.currentTime = plan.from;
+    await new Promise((res) => { v.addEventListener("seeked", res, { once: true }); setTimeout(res, 3000); });
+    if (cancelled) throw new Error("abgebrochen");
+    ctx.drawImage(v, 0, 0, plan.w, plan.h);
+    let running = true;
+    const draw = () => { if (!running) return; ctx.drawImage(v, 0, 0, plan.w, plan.h); v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw); };
+    rec.start(1000);
+    try { await v.play(); } catch { v.muted = true; await v.play(); }
+    draw();
+    await new Promise((res, rej) => {
+      const tick = () => {
+        if (cancelled) { rej(new Error("abgebrochen")); return; }
+        const t = v.currentTime;
+        onProgress(Math.min(1, (t - plan.from) / plan.seg), t - plan.from);
+        if (t >= plan.to - 0.05 || v.ended) res(); else setTimeout(tick, 250);
+      };
+      v.addEventListener("ended", res, { once: true });
+      v.addEventListener("error", () => rej(new Error("Wiedergabe abgebrochen.")), { once: true });
+      tick();
+    });
+    running = false; v.pause(); rec.stop(); await stopped;
+    const blob = new Blob(chunks, { type: mime.split(";")[0] });
+    if (!blob.size) throw new Error("Die Komprimierung hat kein Video erzeugt.");
+    return blob;
+  })().finally(cleanup);
+  return { done, cancel() { cancelled = true; try { rec && rec.state !== "inactive" && rec.stop(); } catch {} } };
+}
+$("#editDlg").addEventListener("close", () => { if (vJob) { vJob.cancel(); vJob = null; toast("Upload abgebrochen"); } });
 $("#editForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (vJob) return;
   const title = $("#fTitle").value.trim();
   if (!title) { $("#fTitle").focus(); toast("Bitte gib einen Titel ein"); return; }
   const links = [$("#fLink1").value, ...$("#fLinksMore").value.split(/\n+/)].map((s) => s.trim()).filter(Boolean).map((s) => (parseUrl(s) || { url: s }).url);
   const isNew = !editingId;
   const it = isNew ? blank() : byId(editingId);
   if (!it) { $("#editDlg").close(); return; }
-  Object.assign(it, {
+  const fields = {
     title, links, style: $("#fStyleSel").value, category: $("#fCatSel").value, role: $("#fRoleSel").value, level: +$("#fLvl").value,
     duration: $("#fDur").value ? Math.max(0, Math.round(+$("#fDur").value)) : null, teacher: $("#fTeacher").value.trim(), counts: $("#fCounts").value.trim(),
     tags: $("#fTags").value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean), notes: $("#fNotes").value, status: editStatus,
-  });
-  if (editStatus === "kann" && it.confidence < 80) it.confidence = 80;
-  if (!isNew && it.example) it.example = false;
-  const file = $("#fFile").files[0];
-  if (file) {
-    const btn = $("#saveBtn"); btn.disabled = true; btn.textContent = "Video wird hochgeladen …";
-    const ext = ((file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5)) || "mp4";
+  };
+  if (vPick) {
+    const plan = videoPlan();
+    if (!plan || plan.error) { toast(plan ? "Video: " + plan.error.split(".")[0] : "Video wird noch gelesen"); $("#vEst").scrollIntoView({ block: "center" }); return; }
+    const btn = $("#saveBtn"), bar = $("#vBar"), txt = $("#vProgTxt");
+    btn.disabled = true; $("#vProg").hidden = false; bar.style.width = "0%";
+    let blob = vPick.file;
+    if (plan.compress) {
+      vJob = startCompression(vPick.file, plan, (frac, done) => { bar.style.width = Math.round(frac * 100) + "%"; txt.textContent = `Komprimiere … ${fmtTime(done)} von ${fmtTime(plan.seg)}. App bitte geöffnet lassen.`; btn.textContent = `Komprimiere ${Math.round(frac * 100)} %`; });
+      try { blob = await vJob.done; }
+      catch (err) { const job = vJob; vJob = null; btn.disabled = false; btn.textContent = "Speichern"; $("#vProg").hidden = true; if (job && err.message !== "abgebrochen") toast("Komprimieren fehlgeschlagen: " + err.message); return; }
+      vJob = null;
+      if (!$("#editDlg").open) return;
+    }
+    if (blob.size > MAX_UPLOAD) { btn.disabled = false; btn.textContent = "Speichern"; $("#vProg").hidden = true; toast(`Das Video ist mit ${mb(blob.size)} noch zu groß. Wähle „Sparsam“ oder einen kürzeren Ausschnitt.`); return; }
+    bar.style.width = "100%"; txt.textContent = `Lade ${mb(blob.size)} hoch …`; btn.textContent = "Lädt hoch …";
+    const ext = /webm/.test(blob.type) ? "webm" : /quicktime/.test(blob.type) ? "mov" : "mp4";
     const path = `${user.id}/${it.id}/${Date.now()}.${ext}`;
-    const { error } = await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || "video/mp4", upsert: false });
+    const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || "video/mp4", upsert: false });
     btn.disabled = false; btn.textContent = "Speichern";
-    if (error) { toast("Upload fehlgeschlagen: " + (error.message || "unbekannter Fehler")); return; }
+    if (error) { $("#vProg").hidden = true; toast("Upload fehlgeschlagen: " + (/exceeded|too large|413/i.test(error.message || "") ? "Datei zu groß." : error.message || "unbekannter Fehler")); return; }
     if (it.videoPath) sb.storage.from(BUCKET).remove([it.videoPath]).catch(() => {});
-    it.videoPath = path;
+    fields.videoPath = path; fields.videoBytes = blob.size;
   }
+  Object.assign(it, fields);
+  if (it.status === "kann" && it.confidence < 80) it.confidence = 80;
+  if (!isNew && it.example) it.example = false;
   if (isNew) items.unshift(it);
   persist(it); $("#editDlg").close(); render(); toast(isNew ? "Gespeichert" : "Änderungen gespeichert");
 });
@@ -1223,7 +1408,11 @@ function confirmDo(title, text, fn, yes = "Löschen") {
 }
 
 /* ---------- Menü ---------- */
-const openMenu = () => $("#menuDlg").showModal();
+const openMenu = () => {
+  const bytes = items.reduce((s, i) => s + (i.videoPath ? i.videoBytes || 0 : 0), 0), n = items.filter((i) => i.videoPath).length;
+  $("#storageInfo").textContent = `Eigene Videos: ${n} · ${mb(bytes)} belegt`;
+  $("#menuDlg").showModal();
+};
 $("#menuBtn").addEventListener("click", openMenu);
 $("#navMenu").addEventListener("click", openMenu);
 $("#themeBtn").addEventListener("click", () => {

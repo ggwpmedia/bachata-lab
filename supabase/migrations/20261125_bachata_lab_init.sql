@@ -15,6 +15,7 @@ create table if not exists public.bachata_tutorials (
   notes text not null default '' check (char_length(notes) <= 20000),
   links text[] not null default '{}',
   video_path text,
+  video_bytes bigint not null default 0 check (video_bytes >= 0),
   status text not null default 'offen' check (status in ('offen','wunsch','lernen','kann')),
   confidence smallint not null default 0 check (confidence between 0 and 100),
   favorite boolean not null default false,
@@ -60,3 +61,6 @@ create policy "bachata_videos_update_own" on storage.objects for update to authe
   using (bucket_id = 'bachata-videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 create policy "bachata_videos_delete_own" on storage.objects for delete to authenticated
   using (bucket_id = 'bachata-videos' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- Für bestehende Installationen
+alter table public.bachata_tutorials add column if not exists video_bytes bigint not null default 0;
