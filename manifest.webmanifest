@@ -1,0 +1,19 @@
+{
+  "name": "Bachata Lab",
+  "short_name": "Bachata Lab",
+  "description": "Deine Bachata-Tutorial-Datenbank mit Lernfortschritt.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1b1430",
+  "theme_color": "#1b1430",
+  "lang": "de",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}

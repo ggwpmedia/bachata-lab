@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bachata Lab</title>
+<meta name="description" content="Deine Bachata-Tutorial-Datenbank mit Lernfortschritt, synchron auf allen Geräten.">
+<meta name="theme-color" content="#1b1430">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bachata Lab">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* Layout: mobile-first app shell. Sticky header, one content column, fixed bottom tab bar with a centre add button.
+   From 900px the tabs move into the header and the library becomes a multi-column grid. */
+:root {
+  --bg: #f6f4fa; --surface: #ffffff; --surface-2: #eeeaf5; --ink: #1b1430; --ink-2: #5d5573; --line: #e2dcee;
+  --accent: #d9366f; --accent-ink: #ffffff; --accent-soft: #fbe3ec; --night: #1b1430; --night-ink: #f4f0fb; --night-2: #b6aecb;
+  --st-open: #8a83a0; --st-wish: #c07a12; --st-learn: #2f6fd6; --st-done: #16895d; --danger: #c93838;
+  --shadow: 0 1px 2px rgba(27,20,48,.06), 0 10px 30px rgba(27,20,48,.10);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --nav-h: 64px; --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #120d1f; --surface: #1c1530; --surface-2: #271e3f; --ink: #f1edf9; --ink-2: #a79fbd; --line: #33294e;
+  --accent: #ff5c93; --accent-ink: #1b0c14; --accent-soft: #3a1a2c; --night: #0c0816;
+  --st-open: #9d96b4; --st-wish: #f0a83a; --st-learn: #6ea2ff; --st-done: #3fd096; --danger: #ff6b6b;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.4); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #120d1f; --surface: #1c1530; --surface-2: #271e3f; --ink: #f1edf9; --ink-2: #a79fbd; --line: #33294e;
+  --accent: #ff5c93; --accent-ink: #1b0c14; --accent-soft: #3a1a2c; --night: #0c0816;
+  --st-open: #9d96b4; --st-wish: #f0a83a; --st-learn: #6ea2ff; --st-done: #3fd096; --danger: #ff6b6b;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.4); color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { font-size: 16px; } /* verhindert Auto-Zoom auf iOS */
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1180px; margin: 0 auto; }
+.icon { width: 20px; height: 20px; flex: none; }
+
+/* Header */
+.top { position: sticky; top: 0; z-index: 20; background: var(--night); color: var(--night-ink); padding-top: var(--sat); }
+.top .wrap { display: flex; align-items: center; gap: 10px; height: 56px; }
+.brand { margin-right: auto; display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand h1 { font: 800 1.35rem/1 var(--f-display); margin: 0; letter-spacing: -.02em; }
+.brand h1 span { color: #ff5c93; }
+.sync { font: 500 .64rem/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--night-2); display: inline-flex; align-items: center; gap: 5px; }
+.sync i { width: 7px; height: 7px; border-radius: 50%; background: #3fd096; }
+.sync.pending i { background: #f0a83a; }
+.sync.offline i { background: #ff6b6b; }
+.hbtn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: transparent; color: var(--night-ink); display: grid; place-items: center; }
+.toptabs { display: none; gap: 4px; }
+.toptabs button { border: 0; background: transparent; color: var(--night-2); padding: 8px 14px; border-radius: 10px; font-weight: 600; }
+.toptabs button.on { color: var(--night-ink); background: rgba(255,255,255,.1); }
+
+/* Bottom nav */
+.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: var(--sab); }
+.nav .wrap { display: grid; grid-template-columns: 1fr 1fr 72px 1fr 1fr; height: var(--nav-h); align-items: center; }
+.nav button { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: .68rem; font-weight: 600; color: var(--ink-2); height: 100%; }
+.nav button.on { color: var(--accent); }
+.nav .fab { width: 56px; height: 56px; margin: -22px auto 0; border-radius: 18px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 20px rgba(217,54,111,.4); }
+.nav .fab .icon { width: 26px; height: 26px; }
+main { padding-bottom: calc(var(--nav-h) + var(--sab) + 24px); }
+.desk-add { display: none !important; }
+@media (min-width: 900px) {
+  .nav { display: none; }
+  .toptabs { display: flex; }
+  main { padding-bottom: 48px; }
+  .desk-add { display: inline-flex !important; }
+}
+
+/* Buttons & fields */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--line); background: var(--surface); padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: .92rem; white-space: nowrap; }
+.btn:hover { border-color: var(--ink-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.block { width: 100%; }
+.btn.sm { min-height: 36px; padding: 6px 12px; font-size: .84rem; border-radius: 10px; }
+.btn.danger { color: var(--danger); }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn[disabled] { opacity: .6; cursor: default; }
+.field { width: 100%; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+textarea.field { resize: vertical; min-height: 96px; }
+.lbl { font: 500 .68rem/1 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lbl output { color: var(--ink); letter-spacing: .04em; text-transform: none; }
+.hint { font-size: .8rem; color: var(--ink-2); font-weight: 400; }
+h2.sec { font: 700 1.15rem/1.2 var(--f-display); margin: 0; letter-spacing: -.01em; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 26px 0 12px; }
+.link { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: .86rem; padding: 4px 0; }
+
+/* Sliders */
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; background: transparent; margin: 0; }
+input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: var(--line); }
+input[type=range]::-moz-range-track { height: 5px; border-radius: 3px; background: var(--line); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); border: 4px solid var(--surface); box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0,0,0,.2); margin-top: -10px; }
+input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 4px solid var(--surface); box-shadow: 0 0 0 1px var(--accent); }
+.dual { position: relative; height: 30px; }
+.dual input { position: absolute; inset: 0; pointer-events: none; }
+.dual input::-webkit-slider-thumb { pointer-events: auto; }
+.dual input::-moz-range-thumb { pointer-events: auto; }
+.dual input:last-child::-webkit-slider-runnable-track { background: transparent; }
+.dual input:last-child::-moz-range-track { background: transparent; }
+.ticks { display: flex; justify-content: space-between; font: 500 .66rem var(--f-mono); color: var(--ink-2); padding: 0 6px; }
+
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px))); padding: 2px max(16px, env(safe-area-inset-right, 0px)) 2px max(16px, env(safe-area-inset-left, 0px)); }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px; font-size: .86rem; font-weight: 500; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.chip i.dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip.soft { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
+
+/* Home */
+.hero { background: var(--night); color: var(--night-ink); padding-block: 8px 24px; }
+.hero .wrap { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px 18px; align-items: center; }
+.ring { position: relative; width: 96px; height: 96px; }
+.ring svg { transform: rotate(-90deg); display: block; }
+.ring .pct { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.ring b { font: 800 1.45rem/1 var(--f-display); display: block; }
+.ring small { font: 500 .56rem/1.2 var(--f-mono); letter-spacing: .12em; color: var(--night-2); text-transform: uppercase; }
+.hero h2 { margin: 0 0 4px; font: 800 1.35rem/1.15 var(--f-display); letter-spacing: -.01em; text-wrap: balance; }
+.hero p { margin: 0; color: var(--night-2); font-size: .88rem; }
+.tiles { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tile { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 10px; text-align: left; color: inherit; min-width: 0; }
+.tile .n { font: 800 1.4rem/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .l { font-size: .7rem; color: var(--night-2); display: flex; align-items: center; gap: 5px; margin-top: 6px; line-height: 1.2; }
+.tile .l i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.count { font: 500 .66rem/1 var(--f-mono); letter-spacing: .2em; color: var(--night-2); }
+.count b { color: #ff5c93; font-weight: 500; }
+@media (min-width: 760px) { .hero .wrap { grid-template-columns: 112px minmax(0, 1fr) minmax(0, 1.3fr); } .ring { width: 112px; height: 112px; } .tiles { grid-column: auto; } }
+
+.hlist { display: grid; gap: 10px; }
+@media (min-width: 760px) { .hlist { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mini { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 8px; }
+.mini .thumb { border-radius: 10px; }
+.mini h3 { margin: 0; font: 600 .96rem/1.25 var(--f-display); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mini .sub { font-size: .76rem; color: var(--ink-2); margin-top: 3px; }
+.pbtn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); display: grid; place-items: center; color: var(--ink); }
+.pbtn:active { transform: scale(.94); }
+.catgrid { display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+@media (min-width: 700px) { .catgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; } }
+.cat-bar { font-size: .84rem; }
+.cat-bar .row { display: flex; justify-content: space-between; gap: 6px; }
+.cat-bar .row span:last-child { font: 500 .76rem var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.track { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 5px; overflow: hidden; display: flex; }
+.track i { display: block; height: 100%; }
+
+/* Library */
+.libbar { position: sticky; top: calc(var(--sat) + 56px); z-index: 10; background: var(--bg); padding-block: 12px 10px; display: grid; gap: 10px; }
+.searchrow { display: flex; gap: 8px; }
+.search { position: relative; flex: 1; }
+.search input { padding-left: 40px; }
+.search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-2); }
+.fbtn { position: relative; width: 46px; height: 46px; flex: none; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.fbtn .badge { position: absolute; top: -5px; right: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font: 600 .7rem/19px var(--f-body); }
+.resrow { display: flex; align-items: center; gap: 10px; font-size: .86rem; color: var(--ink-2); }
+.resrow b { color: var(--ink); }
+.resrow select { margin-left: auto; width: auto; padding: 6px 10px; border-radius: 10px; font-size: .86rem; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 116px minmax(0, 1fr); }
+.card .thumb { height: 100%; min-height: 96px; aspect-ratio: auto; border-radius: 0; }
+.card .info { padding: 10px 12px; display: grid; gap: 5px; align-content: start; min-width: 0; }
+.card h3 { margin: 0; font: 700 1rem/1.25 var(--f-display); letter-spacing: -.01em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; cursor: pointer; }
+.card .status { grid-column: 1 / -1; border-radius: 0; border-left: 0; border-right: 0; border-bottom: 0; }
+@media (min-width: 640px) { .card { grid-template-columns: minmax(0, 1fr); } .card .thumb { aspect-ratio: 16 / 9; height: auto; } }
+
+.thumb { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--surface-2); border: 0; padding: 0; display: block; width: 100%; overflow: hidden; border-radius: 12px; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb .ph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font: 500 .7rem var(--f-mono); letter-spacing: .2em; white-space: nowrap; overflow: hidden; }
+@media (max-width: 639px) { .card .thumb .ph { font-size: 0; } }
+.thumb .play { position: absolute; right: 7px; bottom: 7px; width: 28px; height: 28px; border-radius: 50%; background: rgba(12,8,22,.7); display: grid; place-items: center; color: #fff; }
+.thumb .play .icon { width: 14px; height: 14px; }
+.thumb .src { position: absolute; left: 7px; top: 7px; font: 500 .58rem var(--f-mono); letter-spacing: .08em; text-transform: uppercase; background: rgba(12,8,22,.72); color: #fff; padding: 3px 6px; border-radius: 5px; }
+.thumb .fav { position: absolute; right: 7px; top: 6px; color: #ffcf4a; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.thumb .fav .icon { width: 16px; height: 16px; }
+
+.meta { display: flex; flex-wrap: wrap; gap: 4px 9px; font-size: .76rem; color: var(--ink-2); align-items: center; }
+.lvl { display: inline-flex; gap: 2px; align-items: center; }
+.lvl i { width: 5px; height: 10px; border-radius: 2px; background: var(--line); display: block; }
+.lvl i.on { background: var(--accent); }
+.tag { font-size: .72rem; background: var(--surface-2); color: var(--ink-2); border-radius: 6px; padding: 1px 7px; }
+.conf { display: flex; align-items: center; gap: 8px; }
+.conf .bar { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.conf .bar i { display: block; height: 100%; background: var(--st-done); }
+.conf span { font: 500 .7rem var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.status { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.status button { border: 0; background: transparent; min-height: 44px; padding: 6px 2px; font-size: .72rem; font-weight: 600; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-left: 1px solid var(--line); }
+.status button:first-child { border-left: 0; }
+.status button i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .35; }
+.status button.on { color: #fff; }
+.status button.on i { background: #fff; opacity: 1; }
+.status button.on[data-s="offen"] { background: var(--st-open); }
+.status button.on[data-s="wunsch"] { background: var(--st-wish); }
+.status button.on[data-s="lernen"] { background: var(--st-learn); }
+.status button.on[data-s="kann"] { background: var(--st-done); }
+
+/* Board */
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: 84%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-block: 14px; margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px))); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); scroll-padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+@media (min-width: 900px) { .board { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding-inline: 0; } }
+.col { scroll-snap-align: start; background: var(--surface-2); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 240px; outline: 2px dashed transparent; }
+.col.drop { outline-color: var(--accent); }
+.col h4 { margin: 4px 6px; font: 700 1rem var(--f-display); display: flex; align-items: center; gap: 8px; }
+.col h4 i { width: 10px; height: 10px; border-radius: 50%; }
+.col h4 span { margin-left: auto; font: 500 .76rem var(--f-mono); color: var(--ink-2); }
+.bcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.bcard b { font: 600 .92rem/1.3 var(--f-display); cursor: pointer; }
+.bcard .meta { grid-column: 1; }
+.bcard .adv { grid-row: 1 / span 2; grid-column: 2; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); display: grid; place-items: center; color: var(--ink); }
+.empty-col { color: var(--ink-2); font-size: .82rem; text-align: center; padding: 22px 8px; border: 1px dashed var(--line); border-radius: 12px; }
+.boardhint { font-size: .8rem; color: var(--ink-2); margin: 14px 0 -4px; }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--ink-2); border: 1px dashed var(--line); border-radius: 18px; background: var(--surface); }
+.empty h3 { font: 700 1.2rem var(--f-display); color: var(--ink); margin: 0 0 6px; }
+.empty .acts { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+.notice { display: grid; gap: 10px; background: var(--accent-soft); border-radius: 16px; padding: 14px; font-size: .88rem; color: var(--ink); margin-top: 16px; }
+
+/* Dialogs: full-screen on phones, centred on desktop. Sheets slide up from the bottom. */
+dialog { border: 0; padding: 0; background: var(--bg); color: var(--ink); width: 100%; max-width: 100%; height: 100%; max-height: 100%; margin: 0; }
+dialog::backdrop { background: rgba(12,8,22,.6); }
+dialog.sheet { margin: auto 0 0; height: auto; max-height: 92%; border-radius: 22px 22px 0 0; }
+.dlg { display: flex; flex-direction: column; height: 100%; max-height: inherit; }
+.dlg-head { display: flex; align-items: center; gap: 8px; padding: calc(var(--sat) + 10px) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); background: var(--bg); flex: none; }
+dialog.sheet .dlg-head { padding-top: 14px; }
+.dlg-head h2 { margin: 0 auto 0 0; font: 700 1.15rem/1.2 var(--f-display); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x { border: 0; background: var(--surface-2); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.dlg-body { padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 18px; overflow-y: auto; flex: 1; align-content: start; -webkit-overflow-scrolling: touch; }
+.dlg-foot { flex: none; display: flex; gap: 10px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(var(--sab) + 12px) max(16px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--line); background: var(--bg); }
+.dlg-foot .btn { flex: 1; }
+@media (min-width: 760px) {
+  dialog { width: min(880px, calc(100vw - 48px)); height: auto; max-height: calc(100vh - 48px); margin: auto; border-radius: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.4); }
+  dialog.sheet { width: min(520px, calc(100vw - 48px)); margin: auto; border-radius: 22px; }
+  .dlg-head { padding-top: 14px; }
+  .dlg-foot { padding-bottom: 14px; }
+}
+.form { display: grid; gap: 16px; }
+.form label { display: grid; gap: 7px; font-size: .84rem; font-weight: 600; color: var(--ink-2); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.pasterow { display: flex; gap: 8px; }
+.pasterow .field { flex: 1; min-width: 0; }
+.detected { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: .84rem; }
+.detected img { width: 88px; border-radius: 8px; flex: none; }
+details.more { border-top: 1px solid var(--line); padding-top: 12px; }
+details.more summary { cursor: pointer; font-weight: 600; color: var(--ink-2); font-size: .9rem; list-style: none; display: flex; justify-content: space-between; min-height: 32px; align-items: center; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary::after { content: "+"; font-size: 1.3rem; line-height: 1; }
+details.more[open] summary::after { content: "–"; }
+details.more > .form { margin-top: 14px; }
+
+/* Detail */
+.detail { display: grid; gap: 18px; }
+@media (min-width: 760px) { .detail { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } }
+.player { background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 9; max-width: 100%; position: relative; }
+.player.tall { aspect-ratio: 9 / 16; max-height: 68vh; margin: 0 auto; }
+.player iframe, .player video { width: 100%; height: 100%; border: 0; display: block; transition: transform .2s; background: #000; }
+.player.mirror iframe, .player.mirror video { transform: scaleX(-1); }
+.player .ph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; text-align: center; padding: 20px; }
+.ptools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.links { display: grid; gap: 8px; margin-top: 12px; }
+.links a { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; font-size: .88rem; min-height: 44px; }
+.links a span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side { display: grid; gap: 18px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; font-size: .88rem; margin: 0; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; min-width: 0; }
+.counts { font: 500 .86rem var(--f-mono); letter-spacing: .06em; background: var(--surface-2); border-radius: 8px; padding: 4px 9px; display: inline-block; }
+.practice { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+.practice .n { font: 800 1.7rem/1 var(--f-display); font-variant-numeric: tabular-nums; min-width: 1.4ch; }
+.practice small { color: var(--ink-2); display: block; font-size: .78rem; }
+
+/* Auth */
+.auth { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; background: var(--night); color: var(--night-ink); }
+.auth-hero { padding-top: calc(var(--sat) + 48px); padding-bottom: 32px; }
+.auth-hero h1 { font: 800 2.6rem/1 var(--f-display); margin: 0 0 12px; letter-spacing: -.03em; }
+.auth-hero h1 span { color: #ff5c93; }
+.auth-hero p { color: var(--night-2); margin: 0 0 22px; max-width: 34ch; }
+.auth-card { background: var(--bg); color: var(--ink); border-radius: 26px 26px 0 0; padding-top: 24px; padding-bottom: calc(var(--sab) + 24px); }
+.auth-card form { display: grid; gap: 12px; max-width: 420px; margin: 0 auto; }
+.auth-card h2 { font: 700 1.3rem var(--f-display); margin: 0 0 4px; }
+.auth-card label { font-weight: 600; font-size: .84rem; color: var(--ink-2); display: grid; gap: 6px; }
+.auth-msg { font-size: .88rem; border-radius: 12px; padding: 10px 12px; background: var(--surface-2); }
+.auth-msg.err { background: var(--accent-soft); }
+@media (min-width: 760px) { .auth { grid-template-rows: none; grid-template-columns: 1fr 1fr; } .auth-hero { padding-top: 15vh; } .auth-card { border-radius: 0; display: grid; align-items: center; } }
+
+.toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--sab) + 16px); transform: translateX(-50%) translateY(16px); background: var(--ink); color: var(--bg); padding: 11px 16px; border-radius: 12px; font-size: .88rem; opacity: 0; pointer-events: none; transition: .2s; z-index: 100; max-width: calc(100vw - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+@media (min-width: 900px) { .toast { bottom: 24px; } }
+.menu-list { display: grid; gap: 4px; }
+.menu-list button, .menu-list label { border: 0; background: transparent; text-align: left; padding: 13px 10px; border-radius: 12px; font-size: .95rem; display: flex; gap: 12px; align-items: center; cursor: pointer; min-height: 48px; font-weight: 500; }
+.menu-list button:hover, .menu-list label:hover { background: var(--surface-2); }
+.menu-list hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; width: 100%; }
+.who { font-size: .86rem; color: var(--ink-2); padding: 0 10px 6px; overflow-wrap: anywhere; }
+.spin { width: 24px; height: 24px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp .8s linear infinite; margin: 60px auto; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.5 5.5l3.5 1-3.5 13-3.5-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-board" viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor"/></symbol>
+  <symbol id="i-star-o" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-yt" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor"/><path d="m10 9 5 3-5 3z" fill="var(--bg)"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 4h6v3H9z" fill="currentColor"/></symbol>
+</svg>
+
+<!-- Login -->
+<section class="auth" id="authView" hidden>
+  <div class="auth-hero gut"><div class="wrap">
+    <h1>Bachata<span>Lab</span></h1>
+    <p>Deine Tutorials und dein Lernstand. Auf Handy, Tablet und Laptop immer gleich.</p>
+    <span class="count">1 · 2 · 3 · <b>TAP</b> · 5 · 6 · 7 · <b>TAP</b></span>
+  </div></div>
+  <div class="auth-card gut">
+    <form id="authForm" novalidate>
+      <h2 id="authTitle">Anmelden</h2>
+      <div id="authMsg" class="auth-msg" hidden></div>
+      <label for="aEmail">E-Mail<input class="field" type="email" id="aEmail" autocomplete="email" inputmode="email" required></label>
+      <label for="aPw" id="pwWrap">Passwort<input class="field" type="password" id="aPw" autocomplete="current-password" minlength="6" required></label>
+      <button class="btn primary block" id="authSubmit" type="submit">Anmelden</button>
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <button type="button" class="link" id="authToggle">Neues Konto erstellen</button>
+        <button type="button" class="link" id="authForgot">Passwort vergessen?</button>
+      </div>
+    </form>
+    <form id="newPwForm" hidden>
+      <h2>Neues Passwort festlegen</h2>
+      <label for="newPw">Neues Passwort<input class="field" type="password" id="newPw" autocomplete="new-password" minlength="6" placeholder="Mindestens 6 Zeichen" required></label>
+      <button class="btn primary block" type="submit">Passwort speichern</button>
+    </form>
+  </div>
+</section>
+
+<!-- App -->
+<div id="appView" hidden>
+  <header class="top gut">
+    <div class="wrap">
+      <div class="brand"><h1>Bachata<span>Lab</span></h1><span class="sync" id="sync" title="Synchronisierung"><i></i><span>Sync</span></span></div>
+      <nav class="toptabs" aria-label="Bereiche">
+        <button data-tab="home">Lernen</button><button data-tab="lib">Bibliothek</button><button data-tab="board">Board</button>
+      </nav>
+      <button class="btn primary sm desk-add" data-add>Tutorial hinzufügen</button>
+      <button class="hbtn" id="menuBtn" aria-label="Konto und Einstellungen"><svg class="icon"><use href="#i-user"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <section id="tab-home" data-panel="home"></section>
+    <section id="tab-lib" data-panel="lib" class="gut" hidden>
+      <div class="wrap">
+        <div class="libbar">
+          <div class="searchrow">
+            <div class="search"><svg class="icon"><use href="#i-search"/></svg><input class="field" id="q" type="search" placeholder="Figur, Lehrer:in, Tag …" autocomplete="off" enterkeyhint="search"></div>
+            <button class="fbtn" id="openFilters" aria-label="Filter und Regler"><svg class="icon"><use href="#i-filter"/></svg><span class="badge" id="fBadge" hidden></span></button>
+          </div>
+          <div class="chips scroll" id="quickStatus"></div>
+          <div class="chips scroll" id="activeFilters" hidden></div>
+          <div class="resrow"><span id="res"></span>
+            <select class="field" id="sort" aria-label="Sortierung">
+              <option value="new">Neueste</option><option value="title">A–Z</option><option value="lvlAsc">Level aufsteigend</option><option value="lvlDesc">Level absteigend</option>
+              <option value="conf">Unsicherste zuerst</option><option value="practiced">Zuletzt geübt</option><option value="least">Am wenigsten geübt</option>
+            </select>
+          </div>
+        </div>
+        <div id="libList"></div>
+      </div>
+    </section>
+    <section id="tab-board" data-panel="board" class="gut" hidden><div class="wrap" id="boardWrap"></div></section>
+  </main>
+
+  <nav class="nav gut" aria-label="Bereiche">
+    <div class="wrap">
+      <button data-tab="home"><svg class="icon"><use href="#i-home"/></svg>Lernen</button>
+      <button data-tab="lib"><svg class="icon"><use href="#i-lib"/></svg>Bibliothek</button>
+      <button class="fab" data-add aria-label="Tutorial hinzufügen"><svg class="icon"><use href="#i-plus"/></svg></button>
+      <button data-tab="board"><svg class="icon"><use href="#i-board"/></svg>Board</button>
+      <button id="navMenu"><svg class="icon"><use href="#i-user"/></svg>Konto</button>
+    </div>
+  </nav>
+</div>
+
+<!-- Filter-Sheet -->
+<dialog id="filterDlg" class="sheet" aria-labelledby="fTitleH">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="fTitleH">Filter</h2><button class="btn ghost sm" id="resetFilters">Zurücksetzen</button><button class="x" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dlg-body">
+      <div style="display:grid;gap:10px"><span class="lbl">Status</span><div class="chips" id="fStatus"></div></div>
+      <div style="display:grid;gap:10px"><span class="lbl">Stil</span><div class="chips" id="fStyle"></div></div>
+      <div style="display:grid;gap:10px"><span class="lbl">Kategorie</span><div class="chips" id="fCat"></div></div>
+      <div style="display:grid;gap:10px"><span class="lbl">Rolle</span><div class="chips" id="fRole"></div></div>
+      <div style="display:grid;gap:10px"><span class="lbl">Quelle</span><div class="chips" id="fSource"></div></div>
+      <div style="display:grid;gap:6px">
+        <span class="lbl">Level <output id="lvlOut">1 – 5</output></span>
+        <div class="dual"><input type="range" id="lvlMin" min="1" max="5" step="1" value="1" aria-label="Level von"><input type="range" id="lvlMax" min="1" max="5" step="1" value="5" aria-label="Level bis"></div>
+        <div class="ticks"><span>Anf.</span><span>2</span><span>3</span><span>4</span><span>Profi</span></div>
+      </div>
+      <div style="display:grid;gap:6px">
+        <span class="lbl">Max. Videolänge <output id="durOut">beliebig</output></span>
+        <input type="range" id="dur" min="1" max="61" step="1" value="61" aria-label="Maximale Videolänge in Minuten">
+      </div>
+      <div style="display:grid;gap:6px">
+        <span class="lbl">Sicherheit <output id="confOut">0 – 100 %</output></span>
+        <div class="dual"><input type="range" id="confMin" min="0" max="100" step="5" value="0" aria-label="Sicherheit von"><input type="range" id="confMax" min="0" max="100" step="5" value="100" aria-label="Sicherheit bis"></div>
+      </div>
+      <div class="chips"><button class="chip" id="fFav" type="button">★ Nur Favoriten</button><button class="chip" id="fVideo" type="button">Nur mit Video</button></div>
+    </div>
+    <div class="dlg-foot"><button class="btn primary" data-close id="showResults">Ergebnisse anzeigen</button></div>
+  </div>
+</dialog>
+
+<!-- Bearbeiten -->
+<dialog id="editDlg" aria-labelledby="editTitle">
+  <form class="dlg" id="editForm" novalidate>
+    <div class="dlg-head"><button type="button" class="x" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button><h2 id="editTitle" style="margin-left:4px">Tutorial hinzufügen</h2></div>
+    <div class="dlg-body">
+      <div class="form">
+        <label for="fLink1">Video-Link
+          <span class="pasterow"><input class="field" id="fLink1" type="url" inputmode="url" placeholder="YouTube, Instagram, TikTok, ezdance …" autocomplete="off"><button type="button" class="btn" id="pasteBtn" aria-label="Aus Zwischenablage einfügen"><svg class="icon"><use href="#i-paste"/></svg></button></span>
+        </label>
+        <div id="detectBox"></div>
+        <label for="fTitle">Titel / Figur *<input class="field" id="fTitle" required placeholder="z. B. Hammerlock mit Ausdrehung" autocomplete="off"></label>
+        <div><span class="lbl" style="margin-bottom:8px">Mein Stand</span><div class="status" id="fStatusSel"></div></div>
+        <div class="two">
+          <label for="fStyleSel">Stil<select class="field" id="fStyleSel"></select></label>
+          <label for="fCatSel">Kategorie<select class="field" id="fCatSel"></select></label>
+        </div>
+        <label for="fLvl">Level <output id="fLvlOut" class="hint"></output><input type="range" id="fLvl" min="1" max="5" step="1" value="2"></label>
+        <details class="more" id="moreBox">
+          <summary>Mehr Details</summary>
+          <div class="form">
+            <div class="two">
+              <label for="fRoleSel">Rolle<select class="field" id="fRoleSel"></select></label>
+              <label for="fDur">Länge (Min.)<input class="field" type="number" inputmode="numeric" id="fDur" min="0" max="600" step="1" placeholder="8"></label>
+            </div>
+            <label for="fTeacher">Lehrer:in / Kanal<input class="field" id="fTeacher" placeholder="Kursname, YouTube-Kanal"></label>
+            <label for="fCounts">Timing<input class="field" id="fCounts" placeholder="1-2-3-tap 5-6-7-tap"></label>
+            <label for="fTags">Tags <span class="hint">Komma-getrennt</span><input class="field" id="fTags" placeholder="combo, kurs-woche-3"></label>
+            <label for="fLinksMore">Weitere Links <span class="hint">einer pro Zeile</span><textarea class="field" id="fLinksMore" rows="2" style="min-height:70px"></textarea></label>
+            <label for="fFile">Eigenes Video hochladen <span class="hint">z. B. Kursaufnahme. Max. 50 MB, wird in deiner Cloud gespeichert.</span><input class="field" type="file" id="fFile" accept="video/*"><span class="hint" id="fFileInfo"></span></label>
+            <label for="fNotes">Notizen<textarea class="field" id="fNotes" placeholder="Führungsimpuls, Armhaltung, Musikstelle …"></textarea></label>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="dlg-foot"><button type="submit" class="btn primary" id="saveBtn">Speichern</button></div>
+  </form>
+</dialog>
+
+<!-- Detail -->
+<dialog id="detailDlg" aria-labelledby="dTitle">
+  <div class="dlg">
+    <div class="dlg-head"><button class="x" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button><h2 id="dTitle" style="margin-left:4px"></h2><button class="x" id="dFav" aria-label="Favorit"></button></div>
+    <div class="dlg-body" id="dBody"></div>
+  </div>
+</dialog>
+
+<!-- Menü -->
+<dialog id="menuDlg" class="sheet" aria-labelledby="mTitle">
+  <div class="dlg">
+    <div class="dlg-head"><h2 id="mTitle">Konto</h2><button class="x" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dlg-body" style="padding-bottom:calc(var(--sab) + 16px)">
+      <div class="menu-list">
+        <div class="who" id="whoAmI"></div>
+        <button id="themeBtn">Hell / Dunkel umschalten</button>
+        <button id="syncBtn">Jetzt synchronisieren</button>
+        <hr>
+        <button id="exportBtn">Backup exportieren (.json)</button>
+        <label for="importFile">Backup importieren …</label>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+        <button id="loadExamplesBtn">Beispiel-Lehrplan hinzufügen</button>
+        <button id="removeExamplesBtn">Beispiel-Einträge entfernen</button>
+        <hr>
+        <button id="logoutBtn">Abmelden</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="confirmDlg" class="sheet">
+  <div class="dlg">
+    <div class="dlg-body" style="padding-top:22px">
+      <h2 id="cTitle" style="margin:0;font:700 1.2rem var(--f-display)"></h2>
+      <p id="cText" style="margin:0;color:var(--ink-2)"></p>
+    </div>
+    <div class="dlg-foot"><button class="btn" id="cNo">Abbrechen</button><button class="btn primary" id="cYes">Löschen</button></div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- Cloud-Konfiguration ----------
+   Der Publishable Key ist zum Veröffentlichen gedacht. Die Daten sind über Row Level Security pro Konto geschützt. */
+const SUPABASE_URL = "https://edmpvivauylsycnfdosj.supabase.co";
+const SUPABASE_KEY = "sb_publishable__0CkV_VOMv4O-AveRdZKKw_5rhQ-ql-";
+const TABLE = "bachata_tutorials";
+const BUCKET = "bachata-videos";
+const MAX_VIDEO_MB = 50;
+
+/* ---------- Konstanten ---------- */
+const STATUS = [
+  { id: "offen",  label: "Offen",            short: "Offen",    color: "var(--st-open)" },
+  { id: "wunsch", label: "Will ich lernen",  short: "Wunsch",   color: "var(--st-wish)" },
+  { id: "lernen", label: "Lerne ich gerade", short: "Lerne",    color: "var(--st-learn)" },
+  { id: "kann",   label: "Kann ich",         short: "Kann ich", color: "var(--st-done)" },
+];
+const STYLES = ["Sensual", "Dominicana", "Moderna", "Fusion", "Tradicional"];
+const CATS = ["Grundschritte", "Footwork", "Drehungen", "Partnerfiguren", "Body Movement", "Dips & Tricks", "Styling", "Musikalität", "Kombination"];
+const ROLES = ["Beide", "Leader", "Follower", "Solo"];
+const LEVELS = ["", "Anfänger", "Improver", "Mittelstufe", "Fortgeschritten", "Profi"];
+const SOURCES = { youtube: "YouTube", instagram: "Instagram", tiktok: "TikTok", vimeo: "Vimeo", ezdance: "ezdance", upload: "Eigenes Video", web: "Web", none: "Ohne Video" };
+const CAT_HUE = { "Grundschritte": 330, "Footwork": 20, "Drehungen": 265, "Partnerfiguren": 200, "Body Movement": 300, "Dips & Tricks": 0, "Styling": 40, "Musikalität": 160, "Kombination": 230 };
+
+/* ---------- Helpers ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const icon = (id) => `<svg class="icon"><use href="#${id}"/></svg>`;
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)));
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2400); }
+const relDays = (ts) => { if (!ts) return "noch nie"; const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "heute" : d === 1 ? "gestern" : `vor ${d} Tagen`; };
+const lvlBars = (n) => `<span class="lvl" title="Level ${n}: ${LEVELS[n]}">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`;
+const haptic = () => { try { navigator.vibrate && navigator.vibrate(8); } catch {} };
+const stLabel = (id) => STATUS.find((s) => s.id === id).label;
+const stColor = (id) => STATUS.find((s) => s.id === id).color;
+
+const blank = () => ({ id: uuid(), title: "", style: "Sensual", category: "Grundschritte", level: 2, role: "Beide", duration: null, teacher: "", counts: "", tags: [], notes: "", links: [], videoPath: null, status: "offen", confidence: 0, favorite: false, practiceCount: 0, lastPracticed: null, example: false, createdAt: Date.now() });
+
+function parseUrl(raw) {
+  const url = String(raw || "").trim();
+  if (!url) return null;
+  let u; try { u = new URL(/^https?:\/\//i.test(url) ? url : "https://" + url); } catch { return null; }
+  if (!u.hostname.includes(".")) return null;
+  const host = u.hostname.replace(/^www\.|^m\./, "");
+  let type = "web", id = null, start = 0, vertical = false;
+  const t = u.searchParams.get("t") || u.searchParams.get("start");
+  if (t) { const m = String(t).match(/(?:(\d+)h)?(?:(\d+)m)?(\d+)s?/); if (m) start = (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0); }
+  if (host === "youtu.be") { type = "youtube"; id = u.pathname.slice(1).split("/")[0]; }
+  else if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+    type = "youtube"; vertical = /\/shorts\//.test(u.pathname);
+    id = u.searchParams.get("v") || (u.pathname.match(/\/(?:shorts|embed|live|v)\/([\w-]{6,})/) || [])[1] || null;
+  }
+  else if (host.endsWith("vimeo.com")) { type = "vimeo"; id = (u.pathname.match(/\/(\d{5,})/) || [])[1] || null; }
+  else if (host.endsWith("instagram.com")) type = "instagram";
+  else if (host.endsWith("tiktok.com")) type = "tiktok";
+  else if (host.includes("ezdance")) type = "ezdance";
+  if (id && !/^[\w-]+$/.test(id)) id = null;
+  return { url: u.href, type, id, start, host, vertical };
+}
+const parsedLinks = (it) => (it.links || []).map(parseUrl).filter(Boolean);
+const mainLink = (it) => { const l = parsedLinks(it); return l.find((x) => x.type === "youtube" && x.id) || l[0] || null; };
+const sourceOf = (it) => { if (it.videoPath) return "upload"; const l = mainLink(it); return l ? l.type : "none"; };
+const hasVideo = (it) => !!it.videoPath || (it.links || []).length > 0;
+const ytThumb = (id) => `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
+
+/* ---------- Teilen aus anderen Apps (?url= / ?text=) ---------- */
+let sharedUrl = null;
+{
+  const params = new URLSearchParams(location.search);
+  const s = [params.get("url"), params.get("text"), params.get("add")].filter(Boolean).join(" ");
+  const m = s.match(/https?:\/\/\S+/); if (m) sharedUrl = m[0];
+  if (params.has("url") || params.has("text") || params.has("add") || params.has("title")) history.replaceState(null, "", location.pathname + location.hash);
+}
+
+/* ---------- Beispiel-Lehrplan ---------- */
+const EX = (title, style, category, level, role, counts, tags, notes, status, confidence) => ({ title, style, category, level, role, counts, tags, notes, status, confidence });
+const EXAMPLES = [
+  EX("Grundschritt seitlich", "Tradicional", "Grundschritte", 1, "Beide", "1-2-3-tap 5-6-7-tap", ["basics"], "Gewicht auf 4 und 8 nicht verlagern, Tap locker aus der Hüfte.", "kann", 90),
+  EX("Grundschritt vor & zurück", "Dominicana", "Grundschritte", 1, "Beide", "1-2-3-tap 5-6-7-tap", ["basics"], "", "kann", 80),
+  EX("Box Step", "Sensual", "Grundschritte", 1, "Beide", "1-2-3-tap 5-6-7-tap", ["basics"], "Grundlage für Drehungen im Sensual-Stil.", "lernen", 55),
+  EX("Rechtsdrehung Follower (Inside Turn)", "Moderna", "Drehungen", 2, "Beide", "Prep auf 1-2-3, Drehung 5-6-7", ["turns"], "Leader: Impuls kommt aus dem Rahmen, nicht aus dem Arm.", "lernen", 40),
+  EX("Cross Body Lead", "Moderna", "Partnerfiguren", 2, "Beide", "1-2-3-tap 5-6-7-tap", ["platzwechsel"], "", "kann", 75),
+  EX("Hammerlock & Ausdrehung", "Moderna", "Partnerfiguren", 3, "Beide", "", ["handwechsel"], "", "wunsch", 0),
+  EX("Body Roll (Wave) von oben", "Sensual", "Body Movement", 2, "Solo", "1-2-3-4 durchgehend", ["isolation"], "Kopf, Brust, Bauch, Hüfte. Langsam üben.", "lernen", 35),
+  EX("Head Roll mit Partner", "Sensual", "Body Movement", 4, "Beide", "", ["kopf"], "Nacken locker lassen, Leader sichert immer.", "wunsch", 0),
+  EX("Dominicana Footwork: Kicks & Taps", "Dominicana", "Footwork", 3, "Solo", "1-2-3-tap", ["fußarbeit"], "", "offen", 0),
+  EX("Shadow Position Einstieg", "Sensual", "Partnerfiguren", 3, "Beide", "", ["shadow"], "", "wunsch", 10),
+  EX("Seiten-Dip", "Sensual", "Dips & Tricks", 4, "Beide", "auf 1 oder 5 einleiten", ["dip"], "Nur mit Absprache und stabiler Basis üben.", "offen", 0),
+  EX("Hip Rolls & Arm Styling (Lady Style)", "Sensual", "Styling", 2, "Follower", "", ["styling"], "", "offen", 0),
+  EX("Musik hören: Derecho, Majao, Mambo", "Dominicana", "Musikalität", 2, "Beide", "", ["struktur"], "Teile eines Bachata-Songs erkennen. Mambo ist der Gitarren-Höhepunkt.", "lernen", 50),
+  EX("Breaks & Pausen tanzen", "Moderna", "Musikalität", 3, "Beide", "", ["timing"], "Bei Stopps in der Musik einfrieren oder Akzent setzen.", "wunsch", 0),
+  EX("Kombination: Cross Body + Doppeldrehung", "Moderna", "Kombination", 3, "Beide", "2 × 8 Counts", ["combo"], "", "offen", 0),
+  EX("Spins für Follower (Spotting)", "Fusion", "Drehungen", 3, "Follower", "", ["spins"], "Spot-Punkt halten, Körpermitte anspannen.", "offen", 0),
+];
+function exampleItems() {
+  const now = Date.now();
+  return EXAMPLES.map((e, i) => ({ ...blank(), ...e, example: true,
+    practiceCount: e.status === "kann" ? 6 : e.status === "lernen" ? 2 : 0,
+    lastPracticed: ["kann", "lernen"].includes(e.status) ? now - (i + 1) * 86400000 : null,
+    createdAt: now - i * 1000 }));
+}
+
+/* ---------- Cloud-Sync ---------- */
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+let user = null, items = [], loaded = false;
+let pending = { up: {}, del: {} };
+const cacheKey = () => `bachatalab.cache.${user.id}`;
+const pendKey = () => `bachatalab.pending.${user.id}`;
+
+const toRow = (it) => ({
+  id: it.id, title: it.title.slice(0, 200), style: it.style, category: it.category, level: it.level, role: it.role,
+  duration: it.duration, teacher: it.teacher, counts: it.counts, tags: it.tags, notes: it.notes, links: it.links,
+  video_path: it.videoPath, status: it.status, confidence: it.confidence, favorite: it.favorite,
+  practice_count: it.practiceCount, last_practiced: it.lastPracticed ? new Date(it.lastPracticed).toISOString() : null,
+  example: it.example, created_at: new Date(it.createdAt).toISOString(),
+});
+const fromRow = (r) => ({
+  id: r.id, title: r.title, style: r.style, category: r.category, level: r.level, role: r.role, duration: r.duration,
+  teacher: r.teacher || "", counts: r.counts || "", tags: r.tags || [], notes: r.notes || "", links: r.links || [],
+  videoPath: r.video_path, status: r.status, confidence: r.confidence || 0, favorite: !!r.favorite,
+  practiceCount: r.practice_count || 0, lastPracticed: r.last_practiced ? Date.parse(r.last_practiced) : null,
+  example: !!r.example, createdAt: Date.parse(r.created_at),
+});
+
+function setSync(state) {
+  const el = $("#sync"); if (!el) return;
+  el.className = "sync" + (state === "ok" ? "" : " " + state);
+  el.querySelector("span").textContent = state === "ok" ? "Sync" : state === "pending" ? "Speichert" : "Offline";
+}
+function cacheSave() { if (user) { ls.set(cacheKey(), items); ls.set(pendKey(), pending); } }
+function persist(it) { pending.up[it.id] = true; cacheSave(); flush(); }
+function removeItem(id) { items = items.filter((x) => x.id !== id); delete pending.up[id]; pending.del[id] = true; cacheSave(); flush(); }
+
+let flushing = false, flushAgain = false;
+async function flush() {
+  if (!user || !sb) return;
+  if (flushing) { flushAgain = true; return; }
+  flushing = true;
+  const ups = Object.keys(pending.up), dels = Object.keys(pending.del);
+  if (!ups.length && !dels.length) { setSync("ok"); flushing = false; return; }
+  setSync("pending");
+  try {
+    if (ups.length) {
+      const rows = ups.map((id) => items.find((x) => x.id === id)).filter(Boolean).map(toRow);
+      if (rows.length) { const { error } = await sb.from(TABLE).upsert(rows); if (error) throw error; }
+      ups.forEach((id) => delete pending.up[id]);
+    }
+    if (dels.length) {
+      const { error } = await sb.from(TABLE).delete().in("id", dels); if (error) throw error;
+      dels.forEach((id) => delete pending.del[id]);
+    }
+    cacheSave(); setSync(Object.keys(pending.up).length ? "pending" : "ok");
+  } catch (e) {
+    console.warn("Sync fehlgeschlagen", e); setSync(navigator.onLine ? "pending" : "offline");
+    clearTimeout(flush._r); flush._r = setTimeout(flush, 15000);
+  } finally {
+    flushing = false;
+    if (flushAgain) { flushAgain = false; flush(); }
+  }
+}
+
+async function pull() {
+  if (!user || !sb) return;
+  try {
+    const { data, error } = await sb.from(TABLE).select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    const local = new Map(items.map((i) => [i.id, i]));
+    // Lokale, noch nicht hochgeladene Änderungen haben Vorrang
+    const merged = data.map(fromRow).filter((r) => !pending.del[r.id]).map((r) => (pending.up[r.id] && local.get(r.id)) || r);
+    Object.keys(pending.up).forEach((id) => { if (!merged.some((m) => m.id === id) && local.get(id)) merged.unshift(local.get(id)); });
+    items = merged; loaded = true; cacheSave(); render(); flush();
+  } catch (e) {
+    console.warn("Laden fehlgeschlagen", e); setSync("offline");
+    if (!loaded) { loaded = true; render(); toast("Keine Verbindung. Zeige den zuletzt gespeicherten Stand."); }
+  }
+}
+window.addEventListener("online", () => { flush(); pull(); });
+window.addEventListener("offline", () => setSync("offline"));
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && user) pull(); });
+
+/* ---------- Anmeldung ---------- */
+let authMode = "login";
+function showAuth(msg, err) {
+  user = null; $("#appView").hidden = true; $("#authView").hidden = false;
+  $("#newPwForm").hidden = true; $("#authForm").hidden = false;
+  setAuthMode(authMode); authMessage(msg || "", err);
+}
+function authMessage(msg, err) { const m = $("#authMsg"); m.hidden = !msg; m.textContent = msg || ""; m.classList.toggle("err", !!err); }
+function setAuthMode(mode) {
+  authMode = mode;
+  $("#authTitle").textContent = { login: "Anmelden", signup: "Konto erstellen", reset: "Passwort zurücksetzen" }[mode];
+  $("#authSubmit").textContent = { login: "Anmelden", signup: "Konto erstellen", reset: "Link senden" }[mode];
+  $("#authToggle").textContent = mode === "login" ? "Neues Konto erstellen" : "Zurück zur Anmeldung";
+  $("#authForgot").hidden = mode !== "login";
+  $("#pwWrap").hidden = mode === "reset";
+  $("#aPw").autocomplete = mode === "signup" ? "new-password" : "current-password";
+}
+$("#authToggle").addEventListener("click", () => { authMessage(""); setAuthMode(authMode === "login" ? "signup" : "login"); });
+$("#authForgot").addEventListener("click", () => { authMessage(""); setAuthMode("reset"); });
+const appUrl = () => location.origin + location.pathname;
+const authErr = (e) => {
+  const m = (e && e.message) || "";
+  if (/Invalid login/i.test(m)) return "E-Mail oder Passwort stimmt nicht.";
+  if (/not confirmed/i.test(m)) return "Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der Mail.";
+  if (/already registered/i.test(m)) return "Für diese E-Mail gibt es schon ein Konto. Melde dich an.";
+  if (/Password should be/i.test(m)) return "Das Passwort braucht mindestens 6 Zeichen.";
+  if (/rate limit/i.test(m)) return "Zu viele Versuche. Warte ein paar Minuten.";
+  return m || "Das hat nicht geklappt. Prüfe deine Internetverbindung.";
+};
+$("#authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!sb) { authMessage("Die Cloud-Verbindung konnte nicht geladen werden. Prüfe deine Internetverbindung und lade neu.", true); return; }
+  const email = $("#aEmail").value.trim(), password = $("#aPw").value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) { authMessage("Bitte gib eine gültige E-Mail-Adresse ein.", true); $("#aEmail").focus(); return; }
+  if (authMode !== "reset" && password.length < 6) { authMessage("Das Passwort braucht mindestens 6 Zeichen.", true); return; }
+  const btn = $("#authSubmit"); btn.disabled = true;
+  try {
+    if (authMode === "login") {
+      const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
+    } else if (authMode === "signup") {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: appUrl() } }); if (error) throw error;
+      if (!data.session) { setAuthMode("login"); authMessage("Fast geschafft: Bestätige den Link in der Mail, die wir dir geschickt haben. Danach hier anmelden."); }
+    } else {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: appUrl() }); if (error) throw error;
+      setAuthMode("login"); authMessage("Falls ein Konto existiert, ist ein Link zum Zurücksetzen unterwegs.");
+    }
+  } catch (err) { authMessage(authErr(err), true); }
+  btn.disabled = false;
+});
+$("#newPwForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const { error } = await sb.auth.updateUser({ password: $("#newPw").value });
+  if (error) { toast(authErr(error)); return; }
+  toast("Passwort gespeichert"); $("#newPwForm").hidden = true;
+  const { data } = await sb.auth.getSession(); if (data.session) startApp(data.session.user);
+});
+
+function startApp(u) {
+  if (user && user.id === u.id) return;
+  user = u;
+  items = ls.get(cacheKey(), []); pending = ls.get(pendKey(), { up: {}, del: {} }); loaded = items.length > 0;
+  $("#authView").hidden = true; $("#appView").hidden = false;
+  $("#whoAmI").textContent = "Angemeldet als " + (u.email || "");
+  showTab((location.hash || "").replace("#", "") || "home");
+  pull();
+  if (sharedUrl) { const s = sharedUrl; sharedUrl = null; openEdit(); $("#fLink1").value = s; detect(); }
+}
+let recovering = false;
+if (sb) {
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") { recovering = true; $("#appView").hidden = true; $("#authView").hidden = false; $("#authForm").hidden = true; $("#newPwForm").hidden = false; return; }
+    if (recovering) return;
+    if (session && session.user) setTimeout(() => startApp(session.user), 0);
+    else if (event === "SIGNED_OUT" || event === "INITIAL_SESSION") showAuth();
+  });
+} else showAuth("Die Cloud-Verbindung konnte nicht geladen werden. Prüfe deine Internetverbindung und lade die Seite neu.", true);
+$("#newPwForm").addEventListener("submit", () => { recovering = false; });
+
+/* ---------- Tabs ---------- */
+let tab = "home";
+function showTab(t) {
+  if (!["home", "lib", "board"].includes(t)) t = "home";
+  const changed = t !== tab; tab = t;
+  $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== t));
+  $$("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+  if (location.hash !== "#" + t) history.replaceState(null, "", location.pathname + "#" + t);
+  if (changed) window.scrollTo(0, 0);
+  render();
+}
+$$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+/* ---------- Filter ---------- */
+const F = { q: "", status: new Set(), style: new Set(), cat: new Set(), role: new Set(), source: new Set(), lvlMin: 1, lvlMax: 5, dur: 61, confMin: 0, confMax: 100, fav: false, video: false };
+const prefs = Object.assign({ sort: "new", theme: null }, ls.get("bachatalab.prefs", {}));
+const savePrefs = () => ls.set("bachatalab.prefs", prefs);
+if (prefs.theme) document.documentElement.dataset.theme = prefs.theme;
+
+function chipGroup(el, set, options, labeler = (x) => x, dot) {
+  el.innerHTML = options.map((o) => `<button type="button" class="chip${set.has(o) ? " on" : ""}" data-v="${esc(o)}" aria-pressed="${set.has(o)}">${dot ? `<i class="dot" style="background:${dot(o)}"></i>` : ""}${esc(labeler(o))}</button>`).join("");
+}
+function renderFilterChips() {
+  chipGroup($("#fStatus"), F.status, STATUS.map((s) => s.id), stLabel, stColor);
+  chipGroup($("#fStyle"), F.style, STYLES);
+  chipGroup($("#fCat"), F.cat, CATS);
+  chipGroup($("#fRole"), F.role, ROLES);
+  chipGroup($("#fSource"), F.source, Object.keys(SOURCES), (k) => SOURCES[k]);
+  $("#fFav").classList.toggle("on", F.fav); $("#fVideo").classList.toggle("on", F.video);
+}
+[["#fStatus", "status"], ["#fStyle", "style"], ["#fCat", "cat"], ["#fRole", "role"], ["#fSource", "source"]].forEach(([sel, key]) => {
+  $(sel).addEventListener("click", (e) => { const b = e.target.closest(".chip"); if (!b) return; const v = b.dataset.v; F[key].has(v) ? F[key].delete(v) : F[key].add(v); renderFilterChips(); render(); });
+});
+$("#fFav").addEventListener("click", () => { F.fav = !F.fav; renderFilterChips(); render(); });
+$("#fVideo").addEventListener("click", () => { F.video = !F.video; renderFilterChips(); render(); });
+$("#q").addEventListener("input", (e) => { F.q = e.target.value; render(); });
+$("#quickStatus").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  const v = b.dataset.v;
+  if (v === "all") F.status.clear(); else { const only = F.status.size === 1 && F.status.has(v); F.status.clear(); if (!only) F.status.add(v); }
+  renderFilterChips(); render();
+});
+function bindDual(minEl, maxEl, minKey, maxKey, out, fmt) {
+  const upd = (src) => {
+    let a = +minEl.value, b = +maxEl.value;
+    if (a > b) { if (src === minEl) minEl.value = a = b; else maxEl.value = b = a; }
+    F[minKey] = a; F[maxKey] = b; out.textContent = fmt(a, b); render();
+  };
+  minEl.addEventListener("input", () => upd(minEl)); maxEl.addEventListener("input", () => upd(maxEl));
+}
+const lvlFmt = (a, b) => (a === b ? LEVELS[a] : `${a} – ${b}`);
+bindDual($("#lvlMin"), $("#lvlMax"), "lvlMin", "lvlMax", $("#lvlOut"), lvlFmt);
+bindDual($("#confMin"), $("#confMax"), "confMin", "confMax", $("#confOut"), (a, b) => `${a} – ${b} %`);
+$("#dur").addEventListener("input", (e) => { F.dur = +e.target.value; $("#durOut").textContent = F.dur > 60 ? "beliebig" : `≤ ${F.dur} Min.`; render(); });
+function resetFilters() {
+  Object.assign(F, { q: "", lvlMin: 1, lvlMax: 5, dur: 61, confMin: 0, confMax: 100, fav: false, video: false });
+  ["status", "style", "cat", "role", "source"].forEach((k) => F[k].clear());
+  $("#q").value = ""; $("#lvlMin").value = 1; $("#lvlMax").value = 5; $("#dur").value = 61; $("#confMin").value = 0; $("#confMax").value = 100;
+  $("#lvlOut").textContent = "1 – 5"; $("#durOut").textContent = "beliebig"; $("#confOut").textContent = "0 – 100 %";
+  renderFilterChips(); render();
+}
+$("#resetFilters").addEventListener("click", resetFilters);
+$("#openFilters").addEventListener("click", () => $("#filterDlg").showModal());
+
+function filtered() {
+  const q = F.q.trim().toLowerCase();
+  const list = items.filter((it) => {
+    if (q) { const hay = [it.title, it.teacher, it.notes, it.counts, it.style, it.category, ...(it.tags || [])].join(" ").toLowerCase(); if (!q.split(/\s+/).every((w) => hay.includes(w))) return false; }
+    if (F.status.size && !F.status.has(it.status)) return false;
+    if (F.style.size && !F.style.has(it.style)) return false;
+    if (F.cat.size && !F.cat.has(it.category)) return false;
+    if (F.role.size && !F.role.has(it.role)) return false;
+    if (F.source.size && !F.source.has(sourceOf(it))) return false;
+    if (it.level < F.lvlMin || it.level > F.lvlMax) return false;
+    if (F.dur <= 60 && it.duration && it.duration > F.dur) return false;
+    if (it.confidence < F.confMin || it.confidence > F.confMax) return false;
+    if (F.fav && !it.favorite) return false;
+    if (F.video && !hasVideo(it)) return false;
+    return true;
+  });
+  const cmp = {
+    new: (a, b) => b.createdAt - a.createdAt,
+    title: (a, b) => a.title.localeCompare(b.title, "de"),
+    lvlAsc: (a, b) => a.level - b.level || a.title.localeCompare(b.title, "de"),
+    lvlDesc: (a, b) => b.level - a.level || a.title.localeCompare(b.title, "de"),
+    conf: (a, b) => a.confidence - b.confidence,
+    practiced: (a, b) => (b.lastPracticed || 0) - (a.lastPracticed || 0),
+    least: (a, b) => a.practiceCount - b.practiceCount,
+  }[prefs.sort] || ((a, b) => b.createdAt - a.createdAt);
+  return list.sort(cmp);
+}
+function activeFilterList() {
+  const parts = []; const add = (label, fn) => parts.push({ label, fn });
+  F.style.forEach((v) => add(v, () => F.style.delete(v)));
+  F.cat.forEach((v) => add(v, () => F.cat.delete(v)));
+  F.role.forEach((v) => add(v, () => F.role.delete(v)));
+  F.source.forEach((v) => add(SOURCES[v], () => F.source.delete(v)));
+  if (F.status.size > 1) F.status.forEach((v) => add(stLabel(v), () => F.status.delete(v)));
+  if (F.lvlMin > 1 || F.lvlMax < 5) add(`Level ${lvlFmt(F.lvlMin, F.lvlMax)}`, () => { F.lvlMin = 1; F.lvlMax = 5; $("#lvlMin").value = 1; $("#lvlMax").value = 5; $("#lvlOut").textContent = "1 – 5"; });
+  if (F.dur <= 60) add(`≤ ${F.dur} Min.`, () => { F.dur = 61; $("#dur").value = 61; $("#durOut").textContent = "beliebig"; });
+  if (F.confMin > 0 || F.confMax < 100) add(`Sicherheit ${F.confMin}–${F.confMax} %`, () => { F.confMin = 0; F.confMax = 100; $("#confMin").value = 0; $("#confMax").value = 100; $("#confOut").textContent = "0 – 100 %"; });
+  if (F.fav) add("Favoriten", () => { F.fav = false; });
+  if (F.video) add("Mit Video", () => { F.video = false; });
+  return parts;
+}
+
+/* ---------- Bausteine ---------- */
+function thumbHTML(it, small) {
+  const l = mainLink(it); const src = sourceOf(it); const hue = CAT_HUE[it.category] ?? 300;
+  const ph = `<div class="ph" style="background:linear-gradient(135deg, hsl(${hue} 62% 40%), hsl(${(hue + 40) % 360} 55% 22%))">${small ? "" : "1 2 3 · 5 6 7 ·"}</div>`;
+  const img = l && l.type === "youtube" && l.id ? `<img src="${ytThumb(l.id)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+  return `<button class="thumb" data-open="${it.id}" aria-label="${esc(it.title)} öffnen">${ph}${img}${src !== "none" && !small ? `<span class="src">${esc(SOURCES[src])}</span>` : ""}${it.favorite ? `<span class="fav">${icon("i-star")}</span>` : ""}${hasVideo(it) ? `<span class="play">${icon("i-play")}</span>` : ""}</button>`;
+}
+const statusPicker = (it) => `<div class="status" role="group" aria-label="Status für ${esc(it.title)}">${STATUS.map((s) => `<button type="button" data-s="${s.id}" data-id="${it.id}" class="${it.status === s.id ? "on" : ""}" aria-pressed="${it.status === s.id}"><i></i>${s.short}</button>`).join("")}</div>`;
+const metaHTML = (it, short) => `<div class="meta">${lvlBars(it.level)}<span>${esc(it.style)}</span>${short ? "" : `<span>${esc(it.category)}</span>`}${it.role !== "Beide" && !short ? `<span>${esc(it.role)}</span>` : ""}${it.duration && !short ? `<span>${it.duration} Min.</span>` : ""}${it.example ? `<span class="tag">Beispiel</span>` : ""}</div>`;
+const confHTML = (it) => `<div class="conf" title="Sicherheit ${it.confidence} %"><div class="bar"><i style="width:${it.confidence}%"></i></div><span>${it.confidence}%</span></div>`;
+const cardHTML = (it) => `<article class="card">${thumbHTML(it)}<div class="info"><h3 data-open="${it.id}">${esc(it.title)}</h3>${metaHTML(it)}${confHTML(it)}</div>${statusPicker(it)}</article>`;
+const miniHTML = (it, sub) => `<article class="mini">${thumbHTML(it, true)}<div style="min-width:0;cursor:pointer" data-open="${it.id}"><h3>${esc(it.title)}</h3><div class="sub">${sub}</div></div><button class="pbtn" data-practice="${it.id}" aria-label="Heute geübt: ${esc(it.title)}" title="Heute geübt">${icon("i-check")}</button></article>`;
+
+/* ---------- Render ---------- */
+function render() {
+  if (!user) return;
+  if (tab === "home") renderHome(); else if (tab === "lib") renderLib(); else renderBoard();
+}
+const legacyCount = () => { const l = ls.get("bachatalab.v1", null); return Array.isArray(l) ? l.filter((x) => !x.example).length : 0; };
+function emptyState() {
+  const lc = legacyCount();
+  return `<div class="empty"><h3>Deine Bibliothek ist leer</h3><p>Füge dein erstes Tutorial hinzu: Link einfügen, Figur benennen, Stand setzen.</p><div class="acts"><button class="btn primary" data-add>${icon("i-plus")}Tutorial hinzufügen</button><button class="btn" data-examples>Beispiel-Lehrplan laden</button></div>${lc ? `<div class="acts"><button class="btn" data-legacy>${lc} Einträge von diesem Gerät übernehmen</button></div>` : ""}</div>`;
+}
+
+function renderHome() {
+  const el = $("#tab-home");
+  if (!loaded) { el.innerHTML = `<div class="spin" aria-label="Lädt"></div>`; return; }
+  const total = items.length;
+  const cnt = Object.fromEntries(STATUS.map((s) => [s.id, items.filter((i) => i.status === s.id).length]));
+  const pct = total ? Math.round((cnt.kann / total) * 100) : 0;
+  const R = 40, C = 2 * Math.PI * R; let off = 0;
+  const segs = ["kann", "lernen", "wunsch"].map((id) => { const len = total ? (cnt[id] / total) * C : 0; const s = `<circle cx="48" cy="48" r="${R}" fill="none" stroke="${stColor(id)}" stroke-width="9" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}"/>`; off += len; return s; }).join("");
+  const learning = items.filter((i) => i.status === "lernen").sort((a, b) => (a.lastPracticed || 0) - (b.lastPracticed || 0));
+  const wish = items.filter((i) => i.status === "wunsch").sort((a, b) => a.level - b.level);
+  const stale = items.filter((i) => i.status === "kann" && i.lastPracticed && Date.now() - i.lastPracticed > 21 * 86400000);
+  const headline = !total ? "Los geht's mit deinem ersten Tutorial" : learning.length ? `${learning.length} ${learning.length === 1 ? "Figur" : "Figuren"} in Arbeit` : cnt.kann === total ? "Alles sitzt. Zeit für Neues!" : "Such dir die nächste Figur aus";
+  const usedCats = CATS.filter((c) => items.some((i) => i.category === c));
+  el.innerHTML = `
+    <div class="hero gut"><div class="wrap">
+      <div class="ring" aria-hidden="true"><svg width="100%" height="100%" viewBox="0 0 96 96"><circle cx="48" cy="48" r="${R}" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="9"/>${segs}</svg><div class="pct"><div><b>${pct}%</b><small>kann ich</small></div></div></div>
+      <div><h2>${headline}</h2><p>${total} Tutorials · ${cnt.kann} sitzen · ${items.reduce((s, i) => s + i.practiceCount, 0)}× geübt</p></div>
+      <div class="tiles">${STATUS.map((s) => `<button class="tile" data-goto="${s.id}"><div class="n">${cnt[s.id]}</div><div class="l"><i style="background:${s.color}"></i>${s.label}</div></button>`).join("")}</div>
+    </div></div>
+    <div class="gut"><div class="wrap">
+      ${!total ? `<div style="margin-top:20px">${emptyState()}</div>` : `
+      ${items.some((i) => i.example) ? `<div class="notice"><div><b>Beispiel-Lehrplan aktiv.</b> 16 typische Figuren zum Start, noch ohne Videos. Öffne eine Figur, such ein passendes Tutorial auf YouTube und füge den Link hinzu.</div><div><button class="btn sm" data-remove-examples>Beispiele entfernen</button></div></div>` : ""}
+      <div class="sec-head"><h2 class="sec">Weiter üben</h2>${learning.length > 4 ? `<button class="link" data-goto="lernen">Alle ${learning.length}</button>` : ""}</div>
+      ${learning.length ? `<div class="hlist">${learning.slice(0, 4).map((i) => miniHTML(i, `${lvlBars(i.level)} · ${i.confidence}% sicher · geübt ${relDays(i.lastPracticed)}`)).join("")}</div>` : `<p class="hint">Gerade nichts in Arbeit. Setz eine Figur auf „Lerne ich gerade“.</p>`}
+      ${wish.length ? `<div class="sec-head"><h2 class="sec">Als Nächstes lernen</h2>${wish.length > 4 ? `<button class="link" data-goto="wunsch">Alle ${wish.length}</button>` : ""}</div><div class="hlist">${wish.slice(0, 4).map((i) => miniHTML(i, `${lvlBars(i.level)} · ${esc(i.style)} · ${esc(i.category)}`)).join("")}</div>` : ""}
+      ${stale.length ? `<div class="sec-head"><h2 class="sec">Mal wieder auffrischen</h2></div><div class="hlist">${stale.slice(0, 4).map((i) => miniHTML(i, `Zuletzt geübt ${relDays(i.lastPracticed)}`)).join("")}</div>` : ""}
+      <div class="sec-head"><h2 class="sec">Fortschritt nach Kategorie</h2></div>
+      <div class="catgrid">${usedCats.map((c) => { const inC = items.filter((i) => i.category === c), n = inC.length, k = inC.filter((i) => i.status === "kann").length, l = inC.filter((i) => i.status === "lernen").length, w = inC.filter((i) => i.status === "wunsch").length;
+        return `<div class="cat-bar"><div class="row"><span>${esc(c)}</span><span>${k}/${n}</span></div><div class="track"><i style="width:${(k / n) * 100}%;background:var(--st-done)"></i><i style="width:${(l / n) * 100}%;background:var(--st-learn)"></i><i style="width:${(w / n) * 100}%;background:var(--st-wish)"></i></div></div>`; }).join("")}</div>`}
+    </div></div>`;
+}
+
+function renderLib() {
+  $("#quickStatus").innerHTML = [`<button class="chip${F.status.size === 0 ? " on" : ""}" data-v="all">Alle · ${items.length}</button>`]
+    .concat(STATUS.map((s) => { const on = F.status.size === 1 && F.status.has(s.id); return `<button class="chip${on ? " on" : ""}" data-v="${s.id}"><i class="dot" style="background:${s.color}"></i>${s.label} · ${items.filter((i) => i.status === s.id).length}</button>`; })).join("");
+  const parts = activeFilterList();
+  const af = $("#activeFilters");
+  af.innerHTML = parts.map((p, i) => `<button class="chip soft" data-i="${i}" aria-label="Filter ${esc(p.label)} entfernen">${esc(p.label)} ✕</button>`).join("");
+  af.hidden = !parts.length;
+  af.onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return; parts[+b.dataset.i].fn(); renderFilterChips(); render(); };
+  const badge = $("#fBadge"); badge.hidden = !parts.length; badge.textContent = parts.length;
+  $("#sort").value = prefs.sort;
+  const list = filtered();
+  $("#res").innerHTML = `<b>${list.length}</b> von ${items.length} Tutorials`;
+  $("#showResults").textContent = `${list.length} ${list.length === 1 ? "Ergebnis" : "Ergebnisse"} anzeigen`;
+  const el = $("#libList");
+  if (!loaded) { el.innerHTML = `<div class="spin"></div>`; return; }
+  if (!items.length) { el.innerHTML = emptyState(); return; }
+  if (!list.length) { el.innerHTML = `<div class="empty"><h3>Nichts gefunden</h3><p>Kein Tutorial passt zu diesen Filtern.</p><div class="acts"><button class="btn" data-resetf>Filter zurücksetzen</button></div></div>`; return; }
+  el.innerHTML = `<div class="grid">${list.map(cardHTML).join("")}</div>`;
+}
+
+function renderBoard() {
+  const el = $("#boardWrap");
+  if (!loaded) { el.innerHTML = `<div class="spin"></div>`; return; }
+  if (!items.length) { el.innerHTML = `<div style="margin-top:16px">${emptyState()}</div>`; return; }
+  const list = filtered();
+  const canDrag = matchMedia("(hover: hover) and (pointer: fine)").matches;
+  el.innerHTML = `<p class="boardhint">${canDrag ? "Ziehe Karten zwischen die Spalten oder tippe auf ›." : "Wische zwischen den Spalten. Mit › rückt eine Figur eine Stufe weiter."}</p><div class="board">${STATUS.map((s, si) => {
+    const col = list.filter((i) => i.status === s.id);
+    return `<section class="col" data-col="${s.id}"><h4><i style="background:${s.color}"></i>${s.label}<span>${col.length}</span></h4>${col.map((it) => `<div class="bcard" draggable="${canDrag}" data-id="${it.id}"><b data-open="${it.id}">${esc(it.title)}</b>${metaHTML(it, true)}${si < 3 ? `<button class="adv" data-adv="${it.id}" aria-label="Weiter zu ${STATUS[si + 1].label}" title="Weiter zu ${STATUS[si + 1].label}">${icon("i-next")}</button>` : `<button class="adv" data-open="${it.id}" aria-label="Öffnen">${icon("i-play")}</button>`}</div>`).join("") || `<div class="empty-col">Noch leer</div>`}</section>`;
+  }).join("")}</div>`;
+  if (!canDrag) return;
+  $$(".bcard", el).forEach((c) => c.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", c.dataset.id); e.dataTransfer.effectAllowed = "move"; }));
+  $$(".col", el).forEach((col) => {
+    col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drop"); });
+    col.addEventListener("dragleave", () => col.classList.remove("drop"));
+    col.addEventListener("drop", (e) => { e.preventDefault(); col.classList.remove("drop"); setStatus(e.dataTransfer.getData("text/plain"), col.dataset.col); });
+  });
+}
+
+/* ---------- Aktionen ---------- */
+const byId = (id) => items.find((x) => x.id === id);
+function setStatus(id, s) {
+  const it = byId(id); if (!it || it.status === s) return;
+  it.status = s;
+  if (s === "kann" && it.confidence < 80) it.confidence = 80;
+  if (s === "lernen" && !it.lastPracticed) it.lastPracticed = Date.now();
+  haptic(); persist(it); render(); toast(`${it.title}: ${stLabel(s)}`);
+}
+function practice(id) {
+  const it = byId(id); if (!it) return;
+  it.practiceCount += 1; it.lastPracticed = Date.now();
+  if (it.status === "offen" || it.status === "wunsch") it.status = "lernen";
+  haptic(); persist(it); render(); toast(`${it.title}: ${it.practiceCount}× geübt`);
+}
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  if (t.closest("#detailDlg, #editDlg, #filterDlg, #menuDlg, #confirmDlg")) return;
+  const sbtn = t.closest(".status button[data-id]"); if (sbtn) { setStatus(sbtn.dataset.id, sbtn.dataset.s); return; }
+  const pr = t.closest("[data-practice]"); if (pr) { practice(pr.dataset.practice); return; }
+  const adv = t.closest("[data-adv]"); if (adv) { const it = byId(adv.dataset.adv); const i = STATUS.findIndex((s) => s.id === it.status); setStatus(it.id, STATUS[Math.min(3, i + 1)].id); return; }
+  const op = t.closest("[data-open]"); if (op) { openDetail(op.dataset.open); return; }
+  if (t.closest("[data-add]")) { openEdit(); return; }
+  if (t.closest("[data-examples]")) { loadExamples(); return; }
+  if (t.closest("[data-remove-examples]")) { removeExamples(); return; }
+  if (t.closest("[data-legacy]")) { importLegacy(); return; }
+  if (t.closest("[data-resetf]")) { resetFilters(); return; }
+  const go = t.closest("[data-goto]"); if (go) { F.status.clear(); F.status.add(go.dataset.goto); renderFilterChips(); showTab("lib"); return; }
+});
+$("#sort").addEventListener("change", (e) => { prefs.sort = e.target.value; savePrefs(); render(); });
+
+/* ---------- Detail ---------- */
+let detailId = null;
+async function openDetail(id) {
+  const it = byId(id); if (!it) return;
+  detailId = id;
+  const dlg = $("#detailDlg");
+  $("#dTitle").textContent = it.title;
+  const favBtn = $("#dFav");
+  const paintFav = () => { favBtn.innerHTML = icon(it.favorite ? "i-star" : "i-star-o"); favBtn.style.color = it.favorite ? "#e6a700" : ""; favBtn.setAttribute("aria-pressed", it.favorite); };
+  paintFav();
+  favBtn.onclick = () => { it.favorite = !it.favorite; persist(it); render(); paintFav(); haptic(); };
+  const links = parsedLinks(it);
+  const yt = links.find((l) => l.type === "youtube" && l.id);
+  const vm = links.find((l) => l.type === "vimeo" && l.id);
+  let player;
+  if (it.videoPath) player = `<div class="player" id="pl"><video id="vid" controls playsinline preload="metadata"></video><div class="ph" id="vidLoad">Video wird geladen …</div></div>`;
+  else if (yt) player = `<div class="player${yt.vertical ? " tall" : ""}" id="pl"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt.id)}?rel=0&playsinline=1${yt.start ? "&start=" + yt.start : ""}" title="${esc(it.title)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+  else if (vm) player = `<div class="player" id="pl"><iframe src="https://player.vimeo.com/video/${encodeURIComponent(vm.id)}?playsinline=1" title="${esc(it.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
+  else { const hue = CAT_HUE[it.category] ?? 300; player = `<div class="player" style="background:linear-gradient(135deg, hsl(${hue} 62% 40%), hsl(${(hue + 40) % 360} 55% 22%))"><div class="ph"><div><div style="font:700 1.15rem var(--f-display);margin-bottom:6px">${links.length ? "Video auf externer Seite" : "Noch kein Video verknüpft"}</div><div style="opacity:.85;font-size:.88rem">${links.length ? "Instagram, TikTok und ezdance lassen sich nicht einbetten. Öffne den Link unten." : "Such unten ein passendes Tutorial und füge den Link über „Bearbeiten“ hinzu."}</div></div></div></div>`; }
+  const ytSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent("bachata " + it.style + " " + it.title + " tutorial")}`;
+  $("#dBody").innerHTML = `
+    <div class="detail">
+      <div style="min-width:0">
+        ${player}
+        ${(it.videoPath || yt || vm) ? `<div class="ptools"><button class="btn sm" id="mirrorBtn" aria-pressed="false">Spiegeln</button>${it.videoPath ? [0.5, 0.75, 1].map((r) => `<button class="btn sm${r === 1 ? " primary" : ""}" data-rate="${r}">${String(r).replace(".", ",")}×</button>`).join("") : `<span class="hint">Tempo im Player über ⚙ einstellen</span>`}</div>` : ""}
+        <div class="links">
+          ${links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${icon(l.type === "youtube" ? "i-yt" : "i-link")}<span>${esc(SOURCES[l.type] || l.host)} · ${esc(l.url.replace(/^https?:\/\/(www\.)?/, ""))}</span></a>`).join("")}
+          <a href="${ytSearch}" target="_blank" rel="noopener">${icon("i-search")}<span>Passende Tutorials auf YouTube suchen</span></a>
+        </div>
+      </div>
+      <div class="side">
+        <div><div class="lbl" style="margin-bottom:8px">Mein Stand</div><div class="status" id="dStatus">${STATUS.map((s) => `<button type="button" data-s="${s.id}" class="${it.status === s.id ? "on" : ""}"><i></i>${s.short}</button>`).join("")}</div></div>
+        <div>
+          <div class="lbl">Sicherheit <output id="dConfOut">${it.confidence} %</output></div>
+          <input type="range" id="dConf" min="0" max="100" step="5" value="${it.confidence}" aria-label="Wie sicher kannst du die Figur?">
+          <div class="ticks"><span>unsicher</span><span>klappt meistens</span><span>sitzt</span></div>
+        </div>
+        <div class="practice"><div class="n" id="dPrac">${it.practiceCount}</div><div style="flex:1;min-width:0"><b style="font-size:.9rem">× geübt</b><small id="dLast">Zuletzt: ${relDays(it.lastPracticed)}</small></div><button class="btn primary" id="dPracBtn">${icon("i-check")}Geübt</button></div>
+        <dl class="kv">
+          <dt>Level</dt><dd>${lvlBars(it.level)} ${esc(LEVELS[it.level])}</dd>
+          <dt>Stil</dt><dd>${esc(it.style)}</dd>
+          <dt>Kategorie</dt><dd>${esc(it.category)}</dd>
+          <dt>Rolle</dt><dd>${esc(it.role)}</dd>
+          ${it.teacher ? `<dt>Lehrer:in</dt><dd>${esc(it.teacher)}</dd>` : ""}
+          ${it.duration ? `<dt>Länge</dt><dd>${it.duration} Min.</dd>` : ""}
+          ${it.counts ? `<dt>Timing</dt><dd><span class="counts">${esc(it.counts)}</span></dd>` : ""}
+          ${it.tags.length ? `<dt>Tags</dt><dd>${it.tags.map((t) => `<span class="tag">#${esc(t)}</span>`).join(" ")}</dd>` : ""}
+        </dl>
+        <div><div class="lbl" style="margin-bottom:8px">Notizen</div><textarea class="field" id="dNotes" placeholder="Was hat heute geklappt? Worauf achten?">${esc(it.notes)}</textarea></div>
+        <div style="display:flex;gap:10px"><button class="btn" id="dEdit" style="flex:1">Bearbeiten</button><button class="btn danger" id="dDel" style="flex:1">Löschen</button></div>
+      </div>
+    </div>`;
+  const syncStatusUI = () => { $$("#dStatus button").forEach((x) => x.classList.toggle("on", x.dataset.s === it.status)); $("#dConf").value = it.confidence; $("#dConfOut").textContent = it.confidence + " %"; };
+  $("#dStatus").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; setStatus(id, b.dataset.s); syncStatusUI(); });
+  $("#dConf").addEventListener("input", (e) => { $("#dConfOut").textContent = e.target.value + " %"; });
+  $("#dConf").addEventListener("change", (e) => { it.confidence = +e.target.value; persist(it); render(); });
+  $("#dPracBtn").addEventListener("click", () => { practice(id); $("#dPrac").textContent = it.practiceCount; $("#dLast").textContent = "Zuletzt: heute"; syncStatusUI(); });
+  $("#dNotes").addEventListener("input", (e) => { it.notes = e.target.value; clearTimeout(openDetail._n); openDetail._n = setTimeout(() => persist(it), 700); });
+  $("#dEdit").addEventListener("click", () => { dlg.close(); openEdit(id); });
+  $("#dDel").addEventListener("click", () => confirmDo(`„${it.title}“ löschen?`, "Status, Notizen und ein hochgeladenes Video dieser Figur werden entfernt.", () => {
+    if (it.videoPath) sb.storage.from(BUCKET).remove([it.videoPath]).catch(() => {});
+    removeItem(id); dlg.close(); render(); toast("Gelöscht");
+  }));
+  const mb = $("#mirrorBtn");
+  if (mb) mb.addEventListener("click", () => { const on = $("#pl").classList.toggle("mirror"); mb.setAttribute("aria-pressed", on); mb.classList.toggle("primary", on); });
+  if (!dlg.open) dlg.showModal();
+  $("#dBody").scrollTop = 0;
+  if (it.videoPath) {
+    $$("[data-rate]").forEach((b) => b.addEventListener("click", () => { $("#vid").playbackRate = +b.dataset.rate; $$("[data-rate]").forEach((x) => x.classList.toggle("primary", x === b)); }));
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(it.videoPath, 3600);
+    if (detailId !== id) return;
+    const ld = $("#vidLoad");
+    if (error || !data) { if (ld) ld.textContent = "Video konnte nicht geladen werden."; return; }
+    const v = $("#vid"); if (v) { v.src = data.signedUrl; v.addEventListener("loadeddata", () => ld && ld.remove(), { once: true }); }
+  }
+}
+$("#detailDlg").addEventListener("close", () => {
+  detailId = null;
+  const f = $("#dBody iframe"); if (f) f.src = "about:blank";
+  const v = $("#vid"); if (v) { v.pause(); v.removeAttribute("src"); }
+  const n = $("#dNotes"); if (n) { clearTimeout(openDetail._n); }
+  flush();
+});
+
+/* ---------- Bearbeiten ---------- */
+let editingId = null, editStatus = "offen";
+const fillSelect = (el, opts) => { el.innerHTML = opts.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join(""); };
+fillSelect($("#fStyleSel"), STYLES); fillSelect($("#fCatSel"), CATS); fillSelect($("#fRoleSel"), ROLES);
+const lvlLabel = () => { $("#fLvlOut").textContent = `${$("#fLvl").value} · ${LEVELS[+$("#fLvl").value]}`; };
+$("#fLvl").addEventListener("input", lvlLabel);
+function renderEditStatus() { $("#fStatusSel").innerHTML = STATUS.map((s) => `<button type="button" data-s="${s.id}" class="${editStatus === s.id ? "on" : ""}"><i></i>${s.short}</button>`).join(""); }
+$("#fStatusSel").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; editStatus = b.dataset.s; renderEditStatus(); haptic(); });
+
+function openEdit(id) {
+  editingId = id || null;
+  const it = id ? byId(id) : blank();
+  $("#editTitle").textContent = id ? "Bearbeiten" : "Tutorial hinzufügen";
+  $("#fLink1").value = it.links[0] || "";
+  $("#fLinksMore").value = it.links.slice(1).join("\n");
+  $("#fFile").value = ""; $("#fFileInfo").textContent = it.videoPath ? "Ein eigenes Video ist bereits hochgeladen. Eine neue Datei ersetzt es." : "";
+  $("#fTitle").value = it.title; $("#fStyleSel").value = it.style; $("#fCatSel").value = it.category; $("#fRoleSel").value = it.role;
+  $("#fLvl").value = it.level; lvlLabel();
+  $("#fDur").value = it.duration ?? ""; $("#fTeacher").value = it.teacher; $("#fCounts").value = it.counts;
+  $("#fTags").value = it.tags.join(", "); $("#fNotes").value = it.notes;
+  $("#moreBox").open = !!id && !!(it.teacher || it.counts || it.tags.length || it.notes || it.links.length > 1 || it.videoPath);
+  editStatus = it.status; renderEditStatus();
+  $("#saveBtn").disabled = false; $("#saveBtn").textContent = "Speichern";
+  detect();
+  $("#editDlg").showModal();
+  $("#editDlg .dlg-body").scrollTop = 0;
+}
+$("#pasteBtn").addEventListener("click", async () => {
+  try { const txt = await navigator.clipboard.readText(); const m = txt.match(/https?:\/\/\S+/); if (m) { $("#fLink1").value = m[0]; detect(); } else toast("Kein Link in der Zwischenablage"); }
+  catch { toast("Kein Zugriff auf die Zwischenablage. Link bitte ins Feld einfügen."); $("#fLink1").focus(); }
+});
+
+let detectTimer;
+function detect() {
+  const box = $("#detectBox");
+  const raw = $("#fLink1").value.trim();
+  if (!raw) { box.innerHTML = ""; return; }
+  const p = parseUrl(raw);
+  if (!p) { box.innerHTML = `<div class="detected">Das sieht nicht nach einem Link aus. Er beginnt meist mit https://</div>`; return; }
+  const fetchTitle = ["youtube", "vimeo", "tiktok"].includes(p.type) && !$("#fTitle").value.trim();
+  box.innerHTML = `<div class="detected">${p.type === "youtube" && p.id ? `<img src="${ytThumb(p.id)}" alt="">` : ""}<div style="min-width:0"><div><b>${esc(SOURCES[p.type] || p.host)}</b> erkannt${p.start ? ` · Start bei ${Math.floor(p.start / 60)}:${String(p.start % 60).padStart(2, "0")}` : ""}${p.vertical ? " · Short" : ""}</div><div class="hint" id="oeHint">${fetchTitle ? "Titel wird geholt …" : ""}</div></div></div>`;
+  if (!fetchTitle) return;
+  clearTimeout(detectTimer);
+  detectTimer = setTimeout(async () => {
+    const h = () => $("#oeHint");
+    try {
+      const r = await fetch("https://noembed.com/embed?url=" + encodeURIComponent(p.url));
+      const j = await r.json();
+      if (j && j.title && !$("#fTitle").value.trim()) {
+        $("#fTitle").value = j.title;
+        if (j.author_name && !$("#fTeacher").value.trim()) $("#fTeacher").value = j.author_name;
+        if (h()) h().textContent = "Titel übernommen. Kürz ihn ruhig auf den Figurnamen.";
+        guessFromTitle(j.title);
+      } else if (h()) h().textContent = "";
+    } catch { if (h()) h().textContent = ""; }
+  }, 300);
+}
+function guessFromTitle(t) {
+  const s = t.toLowerCase();
+  if (/dominican|dominicana/.test(s)) $("#fStyleSel").value = "Dominicana";
+  else if (/sensual/.test(s)) $("#fStyleSel").value = "Sensual";
+  else if (/fusion/.test(s)) $("#fStyleSel").value = "Fusion";
+  else if (/moderna|modern/.test(s)) $("#fStyleSel").value = "Moderna";
+  if (/footwork|fußarbeit|shine/.test(s)) $("#fCatSel").value = "Footwork";
+  else if (/turn|spin|drehung/.test(s)) $("#fCatSel").value = "Drehungen";
+  else if (/dip|drop|trick/.test(s)) $("#fCatSel").value = "Dips & Tricks";
+  else if (/wave|body|roll|isolation/.test(s)) $("#fCatSel").value = "Body Movement";
+  else if (/styling|lady|arm/.test(s)) $("#fCatSel").value = "Styling";
+  else if (/musicality|musikal|timing/.test(s)) $("#fCatSel").value = "Musikalität";
+  else if (/combo|combination|kombination|routine/.test(s)) $("#fCatSel").value = "Kombination";
+  else if (/basic|grundschritt|beginner/.test(s)) $("#fCatSel").value = "Grundschritte";
+  if (/beginner|anfänger|basic/.test(s)) $("#fLvl").value = 1;
+  else if (/advanced|fortgeschritten/.test(s)) $("#fLvl").value = 4;
+  else if (/intermediate|mittel/.test(s)) $("#fLvl").value = 3;
+  lvlLabel();
+}
+$("#fLink1").addEventListener("input", detect);
+$("#fFile").addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) { $("#fFileInfo").textContent = ""; return; }
+  const mb = f.size / 1048576;
+  if (mb > MAX_VIDEO_MB) { $("#fFileInfo").textContent = `Die Datei hat ${mb.toFixed(0)} MB, erlaubt sind ${MAX_VIDEO_MB} MB. Kürze das Video oder lade es nicht gelistet auf YouTube hoch.`; e.target.value = ""; return; }
+  $("#fFileInfo").textContent = `${f.name} · ${mb.toFixed(1)} MB`;
+  if (!$("#fTitle").value.trim()) $("#fTitle").value = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+});
+
+$("#editForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = $("#fTitle").value.trim();
+  if (!title) { $("#fTitle").focus(); toast("Bitte gib einen Titel ein"); return; }
+  const links = [$("#fLink1").value, ...$("#fLinksMore").value.split(/\n+/)].map((s) => s.trim()).filter(Boolean).map((s) => (parseUrl(s) || { url: s }).url);
+  const isNew = !editingId;
+  const it = isNew ? blank() : byId(editingId);
+  if (!it) { $("#editDlg").close(); return; }
+  Object.assign(it, {
+    title, links, style: $("#fStyleSel").value, category: $("#fCatSel").value, role: $("#fRoleSel").value, level: +$("#fLvl").value,
+    duration: $("#fDur").value ? Math.max(0, Math.round(+$("#fDur").value)) : null, teacher: $("#fTeacher").value.trim(), counts: $("#fCounts").value.trim(),
+    tags: $("#fTags").value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean), notes: $("#fNotes").value, status: editStatus,
+  });
+  if (editStatus === "kann" && it.confidence < 80) it.confidence = 80;
+  if (!isNew && it.example) it.example = false;
+  const file = $("#fFile").files[0];
+  if (file) {
+    const btn = $("#saveBtn"); btn.disabled = true; btn.textContent = "Video wird hochgeladen …";
+    const ext = ((file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5)) || "mp4";
+    const path = `${user.id}/${it.id}/${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || "video/mp4", upsert: false });
+    btn.disabled = false; btn.textContent = "Speichern";
+    if (error) { toast("Upload fehlgeschlagen: " + (error.message || "unbekannter Fehler")); return; }
+    if (it.videoPath) sb.storage.from(BUCKET).remove([it.videoPath]).catch(() => {});
+    it.videoPath = path;
+  }
+  if (isNew) items.unshift(it);
+  persist(it); $("#editDlg").close(); render(); toast(isNew ? "Gespeichert" : "Änderungen gespeichert");
+});
+
+/* ---------- Dialoge allgemein ---------- */
+$$("[data-close]").forEach((b) => b.addEventListener("click", () => b.closest("dialog").close()));
+$$("dialog").forEach((d) => d.addEventListener("click", (e) => { if (e.target === d) d.close(); }));
+function confirmDo(title, text, fn, yes = "Löschen") {
+  const d = $("#confirmDlg"); $("#cTitle").textContent = title; $("#cText").textContent = text; $("#cYes").textContent = yes;
+  $("#cYes").onclick = () => { d.close(); fn(); }; $("#cNo").onclick = () => d.close(); d.showModal();
+}
+
+/* ---------- Menü ---------- */
+const openMenu = () => $("#menuDlg").showModal();
+$("#menuBtn").addEventListener("click", openMenu);
+$("#navMenu").addEventListener("click", openMenu);
+$("#themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = next; prefs.theme = next; savePrefs();
+});
+$("#syncBtn").addEventListener("click", async () => { $("#menuDlg").close(); await flush(); await pull(); toast(Object.keys(pending.up).length ? "Noch nicht alles gespeichert. Versuche es gleich nochmal." : "Alles synchronisiert"); });
+$("#logoutBtn").addEventListener("click", async () => { $("#menuDlg").close(); await flush(); await sb.auth.signOut(); });
+$("#exportBtn").addEventListener("click", () => {
+  const data = JSON.stringify({ app: "BachataLab", version: 2, exportedAt: new Date().toISOString(), items }, null, 2);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+  a.download = `bachata-lab-backup-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove();
+  toast("Backup erstellt");
+});
+const isUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s || "");
+function importArray(arr) {
+  let added = 0, updated = 0;
+  arr.forEach((raw) => {
+    if (!raw || !raw.title) return;
+    const base = blank();
+    const it = { ...base, ...raw, id: isUuid(raw.id) ? raw.id : base.id, videoPath: null,
+      title: String(raw.title).slice(0, 200),
+      style: STYLES.includes(raw.style) ? raw.style : base.style, category: CATS.includes(raw.category) ? raw.category : base.category,
+      role: ROLES.includes(raw.role) ? raw.role : base.role,
+      tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [], links: Array.isArray(raw.links) ? raw.links.map(String) : [],
+      level: Math.min(5, Math.max(1, Math.round(+raw.level || 2))), confidence: Math.min(100, Math.max(0, Math.round(+raw.confidence || 0))),
+      practiceCount: Math.max(0, Math.round(+raw.practiceCount || 0)), duration: raw.duration ? Math.max(0, Math.round(+raw.duration)) : null,
+      status: STATUS.some((s) => s.id === raw.status) ? raw.status : "offen", createdAt: +raw.createdAt || Date.now(), lastPracticed: +raw.lastPracticed || null };
+    delete it.localVideo;
+    const ex = byId(it.id);
+    if (ex) { Object.assign(ex, { ...it, videoPath: ex.videoPath }); pending.up[ex.id] = true; updated++; }
+    else { items.push(it); pending.up[it.id] = true; added++; }
+  });
+  items.sort((a, b) => b.createdAt - a.createdAt); cacheSave(); flush(); render();
+  return { added, updated };
+}
+$("#importFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return; $("#menuDlg").close();
+  try { const j = JSON.parse(await f.text()); const arr = Array.isArray(j) ? j : j.items; if (!Array.isArray(arr)) throw 0; const r = importArray(arr); toast(`${r.added} neu, ${r.updated} aktualisiert`); }
+  catch { toast("Die Datei ist kein gültiges Bachata-Lab-Backup"); }
+  e.target.value = "";
+});
+function importLegacy() { const l = ls.get("bachatalab.v1", []); const r = importArray(l.filter((x) => !x.example)); toast(`${r.added} Einträge in die Cloud übernommen`); }
+function loadExamples() { exampleItems().forEach((it) => { items.push(it); pending.up[it.id] = true; }); items.sort((a, b) => b.createdAt - a.createdAt); cacheSave(); flush(); render(); toast("Beispiel-Lehrplan geladen"); if ($("#menuDlg").open) $("#menuDlg").close(); }
+function removeExamples() {
+  const ex = items.filter((i) => i.example); if ($("#menuDlg").open) $("#menuDlg").close();
+  if (!ex.length) { toast("Keine Beispiele vorhanden"); return; }
+  ex.forEach((i) => { delete pending.up[i.id]; pending.del[i.id] = true; });
+  items = items.filter((i) => !i.example); cacheSave(); flush(); render(); toast(`${ex.length} Beispiele entfernt`);
+}
+$("#loadExamplesBtn").addEventListener("click", loadExamples);
+$("#removeExamplesBtn").addEventListener("click", removeExamples);
+
+renderFilterChips();
+})();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
